@@ -181,14 +181,6 @@ class SessionManager extends EventEmitter {
     });
 
     client.on("incoming_call", async (call) => {
-      const settings = session.settings || (await this.refreshSettings(lineId));
-      if (settings?.reject_calls && call?.reject) {
-        try {
-          await call.reject();
-        } catch (error) {
-          logger.error("Failed to reject call", { lineId, error: error.message });
-        }
-      }
       await forwardEvent({ lineId, event: "incoming_call", payload: call });
     });
 

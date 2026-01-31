@@ -9,18 +9,12 @@ const createLine = async ({
   rateLimitHour,
   rateLimitDay,
   webhookEnabled,
-  webhookByEvent,
-  webhookEvents,
   webhookBase64,
   ignoreGroups,
-  rejectCalls,
-  readMessages,
-  readStatus,
-  syncHistory,
-  alwaysOnline
+  readMessages
 }) => {
   const result = await db.query(
-    "INSERT INTO lines (name, phone, n8n_webhook_url, rate_limit_minute, rate_limit_hour, rate_limit_day, webhook_enabled, webhook_by_event, webhook_events, webhook_base64, ignore_groups, reject_calls, read_messages, read_status, sync_history, always_online, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING *",
+    "INSERT INTO lines (name, phone, n8n_webhook_url, rate_limit_minute, rate_limit_hour, rate_limit_day, webhook_enabled, webhook_base64, ignore_groups, read_messages, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *",
     [
       name,
       phone,
@@ -29,15 +23,9 @@ const createLine = async ({
       rateLimitHour ?? null,
       rateLimitDay ?? null,
       Boolean(webhookEnabled),
-      Boolean(webhookByEvent),
-      webhookEvents || null,
       Boolean(webhookBase64),
       Boolean(ignoreGroups),
-      Boolean(rejectCalls),
       Boolean(readMessages),
-      Boolean(readStatus),
-      Boolean(syncHistory),
-      Boolean(alwaysOnline),
       SESSION_STATUSES.CREATED
     ]
   );
@@ -82,29 +70,19 @@ const updateLineSettings = async (
   id,
   {
     webhookEnabled,
-    webhookByEvent,
     webhookBase64,
     ignoreGroups,
-    rejectCalls,
     readMessages,
-    readStatus,
-    syncHistory,
-    alwaysOnline,
     n8nWebhookUrl
   }
 ) => {
   const result = await db.query(
-    "UPDATE lines SET webhook_enabled = $1, webhook_by_event = $2, webhook_base64 = $3, ignore_groups = $4, reject_calls = $5, read_messages = $6, read_status = $7, sync_history = $8, always_online = $9, n8n_webhook_url = $10, updated_at = NOW() WHERE id = $11 RETURNING *",
+    "UPDATE lines SET webhook_enabled = $1, webhook_base64 = $2, ignore_groups = $3, read_messages = $4, n8n_webhook_url = $5, updated_at = NOW() WHERE id = $6 RETURNING *",
     [
       Boolean(webhookEnabled),
-      Boolean(webhookByEvent),
       Boolean(webhookBase64),
       Boolean(ignoreGroups),
-      Boolean(rejectCalls),
       Boolean(readMessages),
-      Boolean(readStatus),
-      Boolean(syncHistory),
-      Boolean(alwaysOnline),
       n8nWebhookUrl || null,
       id
     ]
@@ -122,38 +100,10 @@ const getLineRateLimits = async (id) => {
 
 const getLineSettings = async (id) => {
   const result = await db.query(
-    "SELECT webhook_enabled, webhook_by_event, webhook_base64, ignore_groups, reject_calls, read_messages, read_status, sync_history, always_online, n8n_webhook_url FROM lines WHERE id = $1",
+    "SELECT webhook_enabled, webhook_base64, ignore_groups, read_messages, n8n_webhook_url FROM lines WHERE id = $1",
     [id]
   );
   return result.rows[0];
-};
-
-const replaceLineWebhookEvents = async (id, events = []) => {
-  await db.query("DELETE FROM line_webhook_events WHERE line_id = $1", [id]);
-  if (!events.length) return;
-
-  const values = events.map((event, index) => `($1, $${index + 2})`).join(", ");
-  await db.query(
-    `INSERT INTO line_webhook_events (line_id, event) VALUES ${values}`,
-    [id, ...events]
-  );
-};
-
-const getLineWebhookEvents = async (id) => {
-  const result = await db.query(
-    "SELECT event FROM line_webhook_events WHERE line_id = $1 ORDER BY event",
-    [id]
-  );
-  return result.rows.map((row) => row.event);
-};
-
-const getLineWebhookConfig = async (id) => {
-  const settings = await getLineSettings(id);
-  const events = await getLineWebhookEvents(id);
-  return {
-    ...settings,
-    webhookEvents: events
-  };
 };
 
 const deleteLine = async (id) => {
@@ -172,8 +122,5 @@ module.exports = {
   updateLineSettings,
   getLineRateLimits,
   getLineSettings,
-  replaceLineWebhookEvents,
-  getLineWebhookEvents,
-  getLineWebhookConfig,
   deleteLine
 };

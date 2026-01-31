@@ -3,21 +3,17 @@ const env = require("../config/env");
 const logger = require("../config/logger");
 const { getSettings } = require("../models/settings.model");
 const { db } = require("../models/index");
-const { getLineWebhookConfig } = require("../models/line.model");
+const { getLineSettings } = require("../models/line.model");
 
 const resolveWebhookUrl = async (lineId, event) => {
   let webhookUrl = null;
-  let webhookByEvent = false;
   let webhookEnabled = false;
-  let webhookEvents = [];
   let webhookBase64 = false;
 
   try {
-    const lineConfig = await getLineWebhookConfig(lineId);
+    const lineConfig = await getLineSettings(lineId);
     webhookUrl = lineConfig?.n8n_webhook_url || null;
     webhookEnabled = Boolean(lineConfig?.webhook_enabled);
-    webhookByEvent = Boolean(lineConfig?.webhook_by_event);
-    webhookEvents = lineConfig?.webhookEvents || [];
     webhookBase64 = Boolean(lineConfig?.webhook_base64);
   } catch (error) {
     logger.error("Failed to load line webhook", { error: error.message });
@@ -25,14 +21,6 @@ const resolveWebhookUrl = async (lineId, event) => {
 
   if (!webhookEnabled) {
     return { url: null, webhookBase64: false };
-  }
-
-  if (event && webhookEvents.length && !webhookEvents.includes(event)) {
-    return { url: null, webhookBase64: false };
-  }
-
-  if (webhookUrl && webhookByEvent && event) {
-    webhookUrl = `${webhookUrl.replace(/\/$/, "")}/${event}`;
   }
 
   return { url: webhookUrl, webhookBase64 };
@@ -63,14 +51,17 @@ const forwardEvent = async ({ lineId, event, payload }) => {
 
 const forwardInboundMessage = async (payload) => {
   let webhookUrl = env.n8nWebhookUrl;
+  let webhookEnabled = true;
 
   try {
     if (payload?.lineId) {
-      const result = await db.query("SELECT n8n_webhook_url FROM lines WHERE id = $1", [payload.lineId]);
+      const result = await db.query(
+        "SELECT n8n_webhook_url, webhook_enabled FROM lines WHERE id = $1",
+        [payload.lineId]
+      );
       const lineWebhook = result.rows[0]?.n8n_webhook_url;
-      if (lineWebhook) {
-        webhookUrl = lineWebhook;
-      }
+      webhookEnabled = Boolean(result.rows[0]?.webhook_enabled);
+      if (lineWebhook) webhookUrl = lineWebhook;
     }
   } catch (error) {
     logger.error("Failed to load line webhook", { error: error.message });
@@ -84,7 +75,7 @@ const forwardInboundMessage = async (payload) => {
     logger.error("Failed to load settings", { error: error.message });
   }
 
-  if (!webhookUrl) return;
+  if (!webhookEnabled || !webhookUrl) return;
 
   try {
     await axios.post(webhookUrl, payload, {
