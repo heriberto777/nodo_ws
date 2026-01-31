@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api } from "../api/client.js";
 
-export default function Login({ onLogin }) {
+export default function Login({ onLogin, onRegister }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
@@ -44,6 +44,14 @@ export default function Login({ onLogin }) {
 
         <button className="mt-6 w-full rounded bg-emerald-500 px-4 py-2 text-sm text-slate-950">
           Entrar
+        </button>
+
+        <button
+          type="button"
+          onClick={onRegister}
+          className="mt-3 w-full rounded bg-slate-800 px-4 py-2 text-sm"
+        >
+          Crear usuario inicial
         </button>
       </form>
     </div>

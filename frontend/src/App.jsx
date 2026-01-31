@@ -4,6 +4,7 @@ import Dashboard from "./pages/Dashboard.jsx";
 import Lines from "./pages/Lines.jsx";
 import Settings from "./pages/Settings.jsx";
 import Login from "./pages/Login.jsx";
+import Register from "./pages/Register.jsx";
 
 const baseTabs = [
   { id: "dashboard", label: "Dashboard" },
@@ -18,6 +19,7 @@ export default function App() {
   const [statusList, setStatusList] = useState([]);
   const [qrState, setQrState] = useState(null);
   const [logs, setLogs] = useState([]);
+  const [authView, setAuthView] = useState("login");
   const [user, setUser] = useState(() => {
     const stored = localStorage.getItem("wa_user");
     return stored ? JSON.parse(stored) : null;
@@ -58,7 +60,11 @@ export default function App() {
   };
 
   if (!user) {
-    return <Login onLogin={handleLogin} />;
+    if (authView === "register") {
+      return <Register onDone={() => setAuthView("login")} />;
+    }
+
+    return <Login onLogin={handleLogin} onRegister={() => setAuthView("register")} />;
   }
 
   const tabs = baseTabs.filter((tab) => {
