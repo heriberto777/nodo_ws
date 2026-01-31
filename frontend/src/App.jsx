@@ -22,10 +22,23 @@ export default function App() {
   const [authView, setAuthView] = useState("login");
   const [user, setUser] = useState(() => {
     const stored = localStorage.getItem("wa_user");
-    return stored ? JSON.parse(stored) : null;
+    if (!stored) return null;
+    try {
+      return JSON.parse(stored);
+    } catch (error) {
+      localStorage.removeItem("wa_user");
+      return null;
+    }
   });
 
   const socket = useMemo(() => (user ? io(wsUrl) : null), [user]);
+  const tabs = useMemo(() => {
+    if (!user) return [];
+    return baseTabs.filter((tab) => {
+      if (!tab.roles) return true;
+      return tab.roles.includes(user.role);
+    });
+  }, [user]);
 
   useEffect(() => {
     if (!socket) return undefined;
@@ -47,6 +60,13 @@ export default function App() {
     };
   }, [socket]);
 
+  useEffect(() => {
+    if (!tabs.length) return;
+    if (!tabs.find((tab) => tab.id === activeTab)) {
+      setActiveTab(tabs[0].id);
+    }
+  }, [activeTab, tabs]);
+
   const handleLogin = (payload) => {
     localStorage.setItem("wa_token", payload.token);
     localStorage.setItem("wa_user", JSON.stringify(payload.user));
@@ -66,17 +86,6 @@ export default function App() {
 
     return <Login onLogin={handleLogin} onRegister={() => setAuthView("register")} />;
   }
-
-  const tabs = baseTabs.filter((tab) => {
-    if (!tab.roles) return true;
-    return tab.roles.includes(user.role);
-  });
-
-  useEffect(() => {
-    if (!tabs.find((tab) => tab.id === activeTab)) {
-      setActiveTab(tabs[0].id);
-    }
-  }, [activeTab, tabs]);
 
   return (
     <div className="min-h-screen">
