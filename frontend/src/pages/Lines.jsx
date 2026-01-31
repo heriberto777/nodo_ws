@@ -27,7 +27,14 @@ export default function Lines({ statusList, qrState, user }) {
   };
 
   const handleConnect = async (lineId) => {
-    await api.post(`/lines/${lineId}/connect`);
+    try {
+      await api.post(`/lines/${lineId}/connect`);
+    } catch (error) {
+      if (error?.response?.status === 409) {
+        return;
+      }
+      throw error;
+    }
   };
 
   const handleDisconnect = async (lineId) => {
