@@ -20,10 +20,6 @@ export default function Dashboard({ statusList, qrState, logs, user }) {
       setLines(response.data);
     };
 
-    loadLines();
-  }, []);
-
-  useEffect(() => {
     const loadRecent = async () => {
       const response = await api.get("/messages/recent?limit=50");
       const mapped = response.data.map((item) => ({
@@ -36,7 +32,15 @@ export default function Dashboard({ statusList, qrState, logs, user }) {
       setRecentLogs(mapped);
     };
 
+    loadLines();
     loadRecent();
+
+    const intervalId = setInterval(() => {
+      loadLines();
+      loadRecent();
+    }, 5000);
+
+    return () => clearInterval(intervalId);
   }, []);
 
   const statusMap = statusList.reduce((acc, status) => {

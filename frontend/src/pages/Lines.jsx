@@ -23,6 +23,11 @@ export default function Lines({ statusList, qrState, user }) {
 
   useEffect(() => {
     loadLines();
+    const intervalId = setInterval(() => {
+      loadLines();
+    }, 5000);
+
+    return () => clearInterval(intervalId);
   }, []);
 
   const handleSubmit = async (event) => {
@@ -36,8 +41,10 @@ export default function Lines({ statusList, qrState, user }) {
   const handleConnect = async (lineId) => {
     try {
       await api.post(`/lines/${lineId}/connect`);
+      loadLines();
     } catch (error) {
       if (error?.response?.status === 409) {
+        loadLines();
         return;
       }
       throw error;
@@ -46,6 +53,7 @@ export default function Lines({ statusList, qrState, user }) {
 
   const handleDisconnect = async (lineId) => {
     await api.post(`/lines/${lineId}/disconnect`);
+    loadLines();
   };
 
   const handleUpdateWebhook = async (lineId) => {
