@@ -1,4 +1,4 @@
-export default function LineList({ lines, onConnect, onDisconnect, disabled }) {
+export default function LineList({ lines, onConnect, onDisconnect, onUpdateWebhook, onUpdateRateLimit, disabled }) {
   if (!lines.length) {
     return <p className="text-slate-400">No hay líneas registradas.</p>;
   }
@@ -13,6 +13,9 @@ export default function LineList({ lines, onConnect, onDisconnect, disabled }) {
           <div>
             <p className="text-sm text-slate-400">{line.name || "Línea"}</p>
             <p className="text-lg font-semibold">{line.phone || line.lineId}</p>
+            {line.n8n_webhook_url && (
+              <p className="text-xs text-slate-500">Webhook: {line.n8n_webhook_url}</p>
+            )}
           </div>
           <div className="flex gap-2">
             <button
@@ -29,6 +32,24 @@ export default function LineList({ lines, onConnect, onDisconnect, disabled }) {
             >
               Desconectar
             </button>
+            {onUpdateWebhook && (
+              <button
+                onClick={() => onUpdateWebhook(line.id || line.lineId)}
+                disabled={disabled}
+                className="rounded bg-slate-800 px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Webhook
+              </button>
+            )}
+            {onUpdateRateLimit && (
+              <button
+                onClick={() => onUpdateRateLimit(line.id || line.lineId)}
+                disabled={disabled}
+                className="rounded bg-slate-800 px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Rate
+              </button>
+            )}
           </div>
         </div>
       ))}

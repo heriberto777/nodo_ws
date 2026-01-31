@@ -1,12 +1,26 @@
 const Joi = require("joi");
 const createError = require("http-errors");
-const { createLine, listLines } = require("../models/line.model");
+const { createLine, listLines, updateWebhook, updateRateLimit } = require("../models/line.model");
 const sessionManager = require("../services/session.manager");
 const { SESSION_STATUSES } = require("../utils/constants");
 
 const lineSchema = Joi.object({
   name: Joi.string().min(2).required(),
-  phone: Joi.string().min(6).required()
+  phone: Joi.string().min(6).required(),
+  n8nWebhookUrl: Joi.string().allow("", null),
+  rateLimitMinute: Joi.number().integer().min(1).max(1000).allow(null),
+  rateLimitHour: Joi.number().integer().min(1).max(50000).allow(null),
+  rateLimitDay: Joi.number().integer().min(1).max(500000).allow(null)
+});
+
+const webhookSchema = Joi.object({
+  n8nWebhookUrl: Joi.string().allow("", null).required()
+});
+
+const rateLimitSchema = Joi.object({
+  rateLimitMinute: Joi.number().integer().min(1).max(1000).required(),
+  rateLimitHour: Joi.number().integer().min(1).max(50000).required(),
+  rateLimitDay: Joi.number().integer().min(1).max(500000).required()
 });
 
 const create = async (req, res) => {
@@ -39,4 +53,22 @@ const disconnect = async (req, res) => {
   res.json({ lineId: id, status: session.status });
 };
 
-module.exports = { create, list, connect, disconnect };
+const updateLineWebhook = async (req, res) => {
+  const { error } = webhookSchema.validate(req.body);
+  if (error) throw createError(400, "Invalid payload");
+
+  const updated = await updateWebhook(req.params.id, req.body.n8nWebhookUrl);
+  if (!updated) throw createError(404, "Line not found");
+  res.json(updated);
+};
+
+const updateLineRateLimit = async (req, res) => {
+  const { error } = rateLimitSchema.validate(req.body);
+  if (error) throw createError(400, "Invalid payload");
+
+  const updated = await updateRateLimit(req.params.id, req.body);
+  if (!updated) throw createError(404, "Line not found");
+  res.json(updated);
+};
+
+module.exports = { create, list, connect, disconnect, updateLineWebhook, updateLineRateLimit };

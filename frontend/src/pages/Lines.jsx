@@ -5,7 +5,7 @@ import QRCodePanel from "../components/QRCodePanel.jsx";
 
 export default function Lines({ statusList, qrState, user }) {
   const [lines, setLines] = useState([]);
-  const [form, setForm] = useState({ name: "", phone: "" });
+  const [form, setForm] = useState({ name: "", phone: "", n8nWebhookUrl: "" });
   const canManageLines = user?.role === "admin";
   const canOperateLines = user?.role === "admin" || user?.role === "operator";
 
@@ -22,7 +22,7 @@ export default function Lines({ statusList, qrState, user }) {
     event.preventDefault();
     if (!form.name || !form.phone) return;
     await api.post("/lines", form);
-    setForm({ name: "", phone: "" });
+    setForm({ name: "", phone: "", n8nWebhookUrl: "" });
     loadLines();
   };
 
@@ -32,6 +32,31 @@ export default function Lines({ statusList, qrState, user }) {
 
   const handleDisconnect = async (lineId) => {
     await api.post(`/lines/${lineId}/disconnect`);
+  };
+
+  const handleUpdateWebhook = async (lineId) => {
+    const current = mergedLines.find((line) => `${line.id}` === `${lineId}`);
+    const webhook = window.prompt("Webhook n8n para esta línea", current?.n8n_webhook_url || "");
+    if (webhook === null) return;
+    await api.put(`/lines/${lineId}/webhook`, { n8nWebhookUrl: webhook });
+    loadLines();
+  };
+
+  const handleUpdateRateLimit = async (lineId) => {
+    const current = mergedLines.find((line) => `${line.id}` === `${lineId}`) || {};
+    const perMinute = window.prompt("Mensajes por minuto", current.rate_limit_minute || 15);
+    if (perMinute === null) return;
+    const perHour = window.prompt("Mensajes por hora", current.rate_limit_hour || 300);
+    if (perHour === null) return;
+    const perDay = window.prompt("Mensajes por día", current.rate_limit_day || 1000);
+    if (perDay === null) return;
+
+    await api.put(`/lines/${lineId}/ratelimit`, {
+      rateLimitMinute: Number(perMinute),
+      rateLimitHour: Number(perHour),
+      rateLimitDay: Number(perDay)
+    });
+    loadLines();
   };
 
   const statusMap = statusList.reduce((acc, status) => {
@@ -69,6 +94,13 @@ export default function Lines({ statusList, qrState, user }) {
               className="rounded bg-slate-800 px-3 py-2 text-sm"
               disabled={!canManageLines}
             />
+            <input
+              value={form.n8nWebhookUrl}
+              onChange={(event) => setForm({ ...form, n8nWebhookUrl: event.target.value })}
+              placeholder="Webhook n8n (opcional)"
+              className="rounded bg-slate-800 px-3 py-2 text-sm md:col-span-2"
+              disabled={!canManageLines}
+            />
           </div>
           <button
             disabled={!canManageLines}
@@ -89,6 +121,8 @@ export default function Lines({ statusList, qrState, user }) {
             lines={mergedLines}
             onConnect={handleConnect}
             onDisconnect={handleDisconnect}
+            onUpdateWebhook={handleUpdateWebhook}
+            onUpdateRateLimit={handleUpdateRateLimit}
             disabled={!canOperateLines}
           />
         </div>

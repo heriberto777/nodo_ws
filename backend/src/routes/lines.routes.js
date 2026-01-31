@@ -9,5 +9,7 @@ router.get("/", asyncHandler(linesController.list));
 router.post("/", requireRole(["admin"]), asyncHandler(linesController.create));
 router.post("/:id/connect", requireRole(["admin", "operator"]), asyncHandler(linesController.connect));
 router.post("/:id/disconnect", requireRole(["admin", "operator"]), asyncHandler(linesController.disconnect));
+router.put("/:id/webhook", requireRole(["admin"]), asyncHandler(linesController.updateLineWebhook));
+router.put("/:id/ratelimit", requireRole(["admin"]), asyncHandler(linesController.updateLineRateLimit));
 
 module.exports = router;
