@@ -4,6 +4,7 @@ const {
   createLine,
   listLines,
   getLineById,
+  updateStatus,
   updateWebhook,
   updateRateLimit,
   updateLineSettings,
@@ -58,8 +59,9 @@ const list = async (req, res) => {
 
 const connect = async (req, res) => {
   const { id } = req.params;
+  const line = await getLineById(id);
+  if (!line) throw createError(404, "Line not found");
   const session = await sessionManager.connect(id);
-  if (!session) throw createError(404, "Line not found");
   if (session.initializing || session.ready) {
     return res.status(409).json({ lineId: id, status: session.status });
   }
@@ -68,8 +70,13 @@ const connect = async (req, res) => {
 
 const disconnect = async (req, res) => {
   const { id } = req.params;
+  const line = await getLineById(id);
+  if (!line) throw createError(404, "Line not found");
   const session = await sessionManager.disconnect(id);
-  if (!session) throw createError(404, "Line not found");
+  if (!session) {
+    await updateStatus(id, SESSION_STATUSES.DISCONNECTED);
+    return res.json({ lineId: id, status: SESSION_STATUSES.DISCONNECTED });
+  }
   res.json({ lineId: id, status: session.status });
 };
 
