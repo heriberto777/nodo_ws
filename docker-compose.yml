@@ -5,6 +5,9 @@ services:
       context: ./backend
     env_file:
       - ./backend/.env
+    environment:
+      - DATABASE_URL=postgres://wa_user:wa_password@db:5432/wa_automation
+      - REDIS_URL=redis://redis:6379
     ports:
       - "4000:4000"
     depends_on:

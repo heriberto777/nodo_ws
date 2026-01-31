@@ -3,7 +3,7 @@ const jwt = require("jsonwebtoken");
 const Joi = require("joi");
 const createError = require("http-errors");
 const env = require("../config/env");
-const { createUser, findByEmail } = require("../models/user.model");
+const { createUser, findByEmail, countUsers } = require("../models/user.model");
 
 const registerSchema = Joi.object({
   name: Joi.string().min(2).required(),
@@ -18,13 +18,15 @@ const loginSchema = Joi.object({
 });
 
 const register = async (req, res) => {
-  const apiKey = req.headers["x-api-key"];
-  if (!env.apiKey || apiKey !== env.apiKey) {
-    throw createError(401, "Unauthorized");
-  }
-
   const { error } = registerSchema.validate(req.body);
   if (error) throw createError(400, "Invalid payload");
+
+  const totalUsers = await countUsers();
+  if (totalUsers > 0) {
+    if (!req.user || req.user.role !== "admin") {
+      throw createError(403, "Forbidden");
+    }
+  }
 
   const existing = await findByEmail(req.body.email);
   if (existing) throw createError(409, "Email already exists");

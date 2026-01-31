@@ -18,4 +18,9 @@ const createUser = async ({ name, email, passwordHash, role }) => {
   return result.rows[0];
 };
 
-module.exports = { findByEmail, findById, createUser };
+const countUsers = async () => {
+  const result = await db.query("SELECT COUNT(*)::int AS total FROM users", []);
+  return result.rows[0]?.total || 0;
+};
+
+module.exports = { findByEmail, findById, createUser, countUsers };

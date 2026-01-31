@@ -1,9 +1,12 @@
 import { useState } from "react";
+import { api } from "../api/client.js";
 
 export default function Settings({ user }) {
   const [rateLimit, setRateLimit] = useState({ perMinute: 15, perHour: 300, perDay: 1000 });
   const [n8nWebhook, setN8nWebhook] = useState("");
   const isAdmin = user?.role === "admin";
+  const [newUser, setNewUser] = useState({ name: "", email: "", password: "", role: "operator" });
+  const [userStatus, setUserStatus] = useState(null);
 
   return (
     <div className="space-y-6">
@@ -43,6 +46,63 @@ export default function Settings({ user }) {
           className="mt-3 w-full rounded bg-slate-800 px-3 py-2 text-sm"
           disabled={!isAdmin}
         />
+      </div>
+
+      <div className="rounded border border-slate-800 bg-slate-900 p-4">
+        <h2 className="text-lg font-semibold">Crear usuario</h2>
+        {!isAdmin && (
+          <p className="mt-2 text-xs text-slate-400">Solo administradores pueden crear usuarios.</p>
+        )}
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <input
+            value={newUser.name}
+            onChange={(event) => setNewUser({ ...newUser, name: event.target.value })}
+            placeholder="Nombre"
+            className="rounded bg-slate-800 px-3 py-2 text-sm"
+            disabled={!isAdmin}
+          />
+          <input
+            value={newUser.email}
+            onChange={(event) => setNewUser({ ...newUser, email: event.target.value })}
+            placeholder="Correo"
+            className="rounded bg-slate-800 px-3 py-2 text-sm"
+            disabled={!isAdmin}
+          />
+          <input
+            value={newUser.password}
+            onChange={(event) => setNewUser({ ...newUser, password: event.target.value })}
+            placeholder="Contraseña"
+            type="password"
+            className="rounded bg-slate-800 px-3 py-2 text-sm"
+            disabled={!isAdmin}
+          />
+          <select
+            value={newUser.role}
+            onChange={(event) => setNewUser({ ...newUser, role: event.target.value })}
+            className="rounded bg-slate-800 px-3 py-2 text-sm"
+            disabled={!isAdmin}
+          >
+            <option value="admin">admin</option>
+            <option value="operator">operator</option>
+            <option value="viewer">viewer</option>
+          </select>
+        </div>
+        {userStatus && <p className="mt-3 text-xs text-emerald-400">{userStatus}</p>}
+        <button
+          disabled={!isAdmin}
+          onClick={async () => {
+            try {
+              await api.post("/auth/register", newUser);
+              setUserStatus("Usuario creado");
+              setNewUser({ name: "", email: "", password: "", role: "operator" });
+            } catch (error) {
+              setUserStatus("Error al crear usuario");
+            }
+          }}
+          className="mt-4 rounded bg-emerald-500 px-4 py-2 text-sm text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Crear usuario
+        </button>
       </div>
     </div>
   );

@@ -19,6 +19,8 @@ Plataforma full stack para gestionar múltiples sesiones de WhatsApp, automatiza
 3. Ejecuta servicios con docker-compose
 4. Ejecuta doc/scripts/seed-db.sql en PostgreSQL
 
+Nota: en local usa REDIS_URL y DATABASE_URL con localhost; en Docker se sobreescriben automáticamente.
+
 ## Crear usuario administrador
 Ejecuta el script en backend/scripts/create-admin.js con nombre, correo y contraseña.
 
@@ -26,7 +28,7 @@ Ejecuta el script en backend/scripts/create-admin.js con nombre, correo y contra
 - API Key por header x-api-key (opcional para webhooks)
 - JWT obligatorio para panel y API
 - Roles: admin, operator, viewer
- - Registro de usuarios requiere x-api-key
+ - Registro de usuarios requiere JWT de admin (excepto primer usuario)
 
 ## Endpoints principales
 - POST /api/auth/register
