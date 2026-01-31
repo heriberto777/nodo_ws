@@ -35,7 +35,8 @@ class SessionManager extends EventEmitter {
       lineId,
       client,
       status: SESSION_STATUSES.CREATED,
-      ready: false
+      ready: false,
+      initializing: false
     };
 
     this.sessions.set(lineId, session);
@@ -86,10 +87,17 @@ class SessionManager extends EventEmitter {
     const session = this.createSession(lineId);
     if (!session.client) return session;
 
+    if (session.ready || session.initializing) {
+      return session;
+    }
+
     try {
+      session.initializing = true;
       await session.client.initialize();
+      session.initializing = false;
       return session;
     } catch (error) {
+      session.initializing = false;
       logger.error("Failed to initialize session", { lineId, error: error.message });
       throw error;
     }

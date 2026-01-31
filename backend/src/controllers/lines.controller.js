@@ -26,6 +26,9 @@ const connect = async (req, res) => {
   const { id } = req.params;
   const session = await sessionManager.connect(id);
   if (!session) throw createError(404, "Line not found");
+  if (session.initializing || session.ready) {
+    return res.status(409).json({ lineId: id, status: session.status });
+  }
   res.json({ lineId: id, status: session.status || SESSION_STATUSES.CREATED });
 };
 
