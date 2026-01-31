@@ -12,6 +12,14 @@ const io = new Server(server, {
 
 sessionManager.bindSocket(io);
 
+process.on("unhandledRejection", (reason) => {
+  logger.error("UnhandledRejection", { reason });
+});
+
+process.on("uncaughtException", (error) => {
+  logger.error("UncaughtException", { error: error.message, stack: error.stack });
+});
+
 server.listen(env.port, () => {
   logger.info(`Server listening on port ${env.port}`);
 });
