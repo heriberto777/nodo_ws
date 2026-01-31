@@ -1,4 +1,13 @@
-export default function LineList({ lines, onConnect, onDisconnect, onUpdateWebhook, onUpdateRateLimit, disabled }) {
+export default function LineList({
+  lines,
+  onConnect,
+  onDisconnect,
+  onUpdateWebhook,
+  onUpdateRateLimit,
+  onSelect,
+  onDelete,
+  disabled
+}) {
   if (!lines.length) {
     return <p className="text-slate-400">No hay líneas registradas.</p>;
   }
@@ -17,7 +26,16 @@ export default function LineList({ lines, onConnect, onDisconnect, onUpdateWebho
               <p className="text-xs text-slate-500">Webhook: {line.n8n_webhook_url}</p>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            {onSelect && (
+              <button
+                onClick={() => onSelect(line.id || line.lineId)}
+                disabled={disabled}
+                className="rounded bg-slate-800 px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Config
+              </button>
+            )}
             <button
               onClick={() => onConnect(line.id || line.lineId)}
               disabled={disabled}
@@ -48,6 +66,15 @@ export default function LineList({ lines, onConnect, onDisconnect, onUpdateWebho
                 className="rounded bg-slate-800 px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Rate
+              </button>
+            )}
+            {onDelete && (
+              <button
+                onClick={() => onDelete(line.id || line.lineId)}
+                disabled={disabled}
+                className="rounded bg-rose-500 px-3 py-2 text-xs text-white disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Eliminar
               </button>
             )}
           </div>

@@ -3,6 +3,63 @@ const env = require("../config/env");
 const logger = require("../config/logger");
 const { getSettings } = require("../models/settings.model");
 const { db } = require("../models/index");
+const { getLineWebhookConfig } = require("../models/line.model");
+
+const resolveWebhookUrl = async (lineId, event) => {
+  let webhookUrl = null;
+  let webhookByEvent = false;
+  let webhookEnabled = false;
+  let webhookEvents = [];
+  let webhookBase64 = false;
+
+  try {
+    const lineConfig = await getLineWebhookConfig(lineId);
+    webhookUrl = lineConfig?.n8n_webhook_url || null;
+    webhookEnabled = Boolean(lineConfig?.webhook_enabled);
+    webhookByEvent = Boolean(lineConfig?.webhook_by_event);
+    webhookEvents = lineConfig?.webhookEvents || [];
+    webhookBase64 = Boolean(lineConfig?.webhook_base64);
+  } catch (error) {
+    logger.error("Failed to load line webhook", { error: error.message });
+  }
+
+  if (!webhookEnabled) {
+    return { url: null, webhookBase64: false };
+  }
+
+  if (event && webhookEvents.length && !webhookEvents.includes(event)) {
+    return { url: null, webhookBase64: false };
+  }
+
+  if (webhookUrl && webhookByEvent && event) {
+    webhookUrl = `${webhookUrl.replace(/\/$/, "")}/${event}`;
+  }
+
+  return { url: webhookUrl, webhookBase64 };
+};
+
+const forwardEvent = async ({ lineId, event, payload }) => {
+  const { url, webhookBase64 } = await resolveWebhookUrl(lineId, event);
+  if (!url) return;
+
+  const body = {
+    event,
+    lineId,
+    ...payload
+  };
+
+  if (webhookBase64) {
+    body.webhookBase64 = true;
+  }
+
+  try {
+    await axios.post(url, body, {
+      headers: { "x-api-key": env.apiKey }
+    });
+  } catch (error) {
+    logger.error("Failed to forward to n8n", { error: error.message });
+  }
+};
 
 const forwardInboundMessage = async (payload) => {
   let webhookUrl = env.n8nWebhookUrl;
@@ -38,4 +95,4 @@ const forwardInboundMessage = async (payload) => {
   }
 };
 
-module.exports = { forwardInboundMessage };
+module.exports = { forwardInboundMessage, forwardEvent };

@@ -38,8 +38,11 @@ Ejecuta el script en backend/scripts/create-admin.js con nombre, correo y contra
 - POST /api/lines
 - POST /api/lines/:id/connect
 - POST /api/lines/:id/disconnect
+- GET /api/lines/:id/settings
 - PUT /api/lines/:id/webhook
 - PUT /api/lines/:id/ratelimit
+- PUT /api/lines/:id/settings
+- DELETE /api/lines/:id
 - POST /api/webhooks/n8n/inbound
 
 ## Documentación

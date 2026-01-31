@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client.js";
 import LineList from "../components/LineList.jsx";
 import QRCodePanel from "../components/QRCodePanel.jsx";
@@ -6,8 +6,32 @@ import QRCodePanel from "../components/QRCodePanel.jsx";
 export default function Lines({ statusList, qrState, user }) {
   const [lines, setLines] = useState([]);
   const [form, setForm] = useState({ name: "", phone: "", n8nWebhookUrl: "" });
+  const [selectedLineId, setSelectedLineId] = useState(null);
+  const [lineSettings, setLineSettings] = useState(null);
+  const [settingsStatus, setSettingsStatus] = useState(null);
   const canManageLines = user?.role === "admin";
   const canOperateLines = user?.role === "admin" || user?.role === "operator";
+  const webhookEvents = useMemo(
+    () => [
+      "message",
+      "message_create",
+      "message_ack",
+      "message_reaction",
+      "message_revoke_everyone",
+      "message_revoke_me",
+      "group_join",
+      "group_leave",
+      "group_update",
+      "contact_changed",
+      "change_state",
+      "loading_screen",
+      "incoming_call",
+      "ready",
+      "authenticated",
+      "disconnected"
+    ],
+    []
+  );
 
   const loadLines = async () => {
     const response = await api.get("/lines");
@@ -76,6 +100,39 @@ export default function Lines({ statusList, qrState, user }) {
     status: statusMap[line.id] || line.status
   }));
 
+  const handleSelectLine = (lineId) => {
+    setSelectedLineId(lineId);
+    api
+      .get(`/lines/${lineId}/settings`)
+      .then((response) => {
+        setLineSettings({
+          webhookEnabled: response.data.webhookEnabled,
+          webhookByEvent: response.data.webhookByEvent,
+          webhookBase64: response.data.webhookBase64,
+          webhookEvents: response.data.webhookEvents || [],
+          n8nWebhookUrl: response.data.n8nWebhookUrl || "",
+          ignoreGroups: response.data.ignoreGroups,
+          rejectCalls: response.data.rejectCalls,
+          readMessages: response.data.readMessages,
+          readStatus: response.data.readStatus,
+          syncHistory: response.data.syncHistory,
+          alwaysOnline: response.data.alwaysOnline,
+          rateLimitMinute: response.data.rateLimitMinute,
+          rateLimitHour: response.data.rateLimitHour,
+          rateLimitDay: response.data.rateLimitDay
+        });
+      })
+      .catch(() => {
+        setLineSettings(null);
+      });
+  };
+
+  const handleDeleteLine = async (lineId) => {
+    if (!window.confirm("Eliminar esta línea?")) return;
+    await api.delete(`/lines/${lineId}`);
+    loadLines();
+  };
+
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       <div className="lg:col-span-2 space-y-6">
@@ -130,10 +187,222 @@ export default function Lines({ statusList, qrState, user }) {
             onDisconnect={handleDisconnect}
             onUpdateWebhook={handleUpdateWebhook}
             onUpdateRateLimit={handleUpdateRateLimit}
+            onSelect={handleSelectLine}
+            onDelete={canManageLines ? handleDeleteLine : null}
             disabled={!canOperateLines}
           />
         </div>
       </div>
+
+      {selectedLineId && lineSettings && (
+        <div className="rounded border border-slate-800 bg-slate-900 p-4">
+          <h3 className="text-lg font-semibold">Configuración por línea</h3>
+          <p className="text-xs text-slate-400">Línea ID: {selectedLineId}</p>
+          <p className="mt-2 text-xs text-slate-500">
+            Algunas opciones dependen del soporte de whatsapp-web.js.
+          </p>
+
+          <div className="mt-4 space-y-3">
+            <label className="flex items-center gap-3 text-sm">
+              <input
+                type="checkbox"
+                checked={lineSettings.ignoreGroups}
+                onChange={(event) =>
+                  setLineSettings({ ...lineSettings, ignoreGroups: event.target.checked })
+                }
+                disabled={!canManageLines}
+              />
+              Ignorar grupos
+            </label>
+            <label className="flex items-center gap-3 text-sm">
+              <input
+                type="checkbox"
+                checked={lineSettings.rejectCalls}
+                onChange={(event) =>
+                  setLineSettings({ ...lineSettings, rejectCalls: event.target.checked })
+                }
+                disabled={!canManageLines}
+              />
+              Rechazar llamadas
+            </label>
+            <label className="flex items-center gap-3 text-sm">
+              <input
+                type="checkbox"
+                checked={lineSettings.readMessages}
+                onChange={(event) =>
+                  setLineSettings({ ...lineSettings, readMessages: event.target.checked })
+                }
+                disabled={!canManageLines}
+              />
+              Marcar mensajes como leídos
+            </label>
+            <label className="flex items-center gap-3 text-sm">
+              <input
+                type="checkbox"
+                checked={lineSettings.readStatus}
+                onChange={(event) =>
+                  setLineSettings({ ...lineSettings, readStatus: event.target.checked })
+                }
+                disabled={!canManageLines}
+              />
+              Marcar estados como leídos
+            </label>
+            <label className="flex items-center gap-3 text-sm">
+              <input
+                type="checkbox"
+                checked={lineSettings.syncHistory}
+                onChange={(event) =>
+                  setLineSettings({ ...lineSettings, syncHistory: event.target.checked })
+                }
+                disabled={!canManageLines}
+              />
+              Sincronizar historial (informativo)
+            </label>
+            <label className="flex items-center gap-3 text-sm">
+              <input
+                type="checkbox"
+                checked={lineSettings.alwaysOnline}
+                onChange={(event) =>
+                  setLineSettings({ ...lineSettings, alwaysOnline: event.target.checked })
+                }
+                disabled={!canManageLines}
+              />
+              Always online (informativo)
+            </label>
+          </div>
+
+          <div className="mt-6 grid gap-3 md:grid-cols-3">
+            <input
+              value={lineSettings.rateLimitMinute}
+              onChange={(event) =>
+                setLineSettings({ ...lineSettings, rateLimitMinute: event.target.value })
+              }
+              className="rounded bg-slate-800 px-3 py-2 text-sm"
+              disabled={!canManageLines}
+              placeholder="Minuto"
+            />
+            <input
+              value={lineSettings.rateLimitHour}
+              onChange={(event) =>
+                setLineSettings({ ...lineSettings, rateLimitHour: event.target.value })
+              }
+              className="rounded bg-slate-800 px-3 py-2 text-sm"
+              disabled={!canManageLines}
+              placeholder="Hora"
+            />
+            <input
+              value={lineSettings.rateLimitDay}
+              onChange={(event) =>
+                setLineSettings({ ...lineSettings, rateLimitDay: event.target.value })
+              }
+              className="rounded bg-slate-800 px-3 py-2 text-sm"
+              disabled={!canManageLines}
+              placeholder="Día"
+            />
+          </div>
+
+          <div className="mt-6 space-y-3">
+            <label className="flex items-center gap-3 text-sm">
+              <input
+                type="checkbox"
+                checked={lineSettings.webhookEnabled}
+                onChange={(event) =>
+                  setLineSettings({ ...lineSettings, webhookEnabled: event.target.checked })
+                }
+                disabled={!canManageLines}
+              />
+              Webhook habilitado
+            </label>
+            <label className="flex items-center gap-3 text-sm">
+              <input
+                type="checkbox"
+                checked={lineSettings.webhookByEvent}
+                onChange={(event) =>
+                  setLineSettings({ ...lineSettings, webhookByEvent: event.target.checked })
+                }
+                disabled={!canManageLines}
+              />
+              Webhook por evento (URL/evento)
+            </label>
+            <label className="flex items-center gap-3 text-sm">
+              <input
+                type="checkbox"
+                checked={lineSettings.webhookBase64}
+                onChange={(event) =>
+                  setLineSettings({ ...lineSettings, webhookBase64: event.target.checked })
+                }
+                disabled={!canManageLines}
+              />
+              Enviar media en base64 (si aplica)
+            </label>
+            <input
+              value={lineSettings.n8nWebhookUrl}
+              onChange={(event) =>
+                setLineSettings({ ...lineSettings, n8nWebhookUrl: event.target.value })
+              }
+              placeholder="Webhook URL"
+              className="w-full rounded bg-slate-800 px-3 py-2 text-sm"
+              disabled={!canManageLines}
+            />
+          </div>
+
+          <div className="mt-6">
+            <p className="text-sm font-semibold">Eventos</p>
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              {webhookEvents.map((event) => (
+                <label key={event} className="flex items-center gap-2 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={lineSettings.webhookEvents.includes(event)}
+                    onChange={(e) => {
+                      const next = e.target.checked
+                        ? [...lineSettings.webhookEvents, event]
+                        : lineSettings.webhookEvents.filter((item) => item !== event);
+                      setLineSettings({ ...lineSettings, webhookEvents: next });
+                    }}
+                    disabled={!canManageLines}
+                  />
+                  {event}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {settingsStatus && <p className="mt-3 text-xs text-emerald-400">{settingsStatus}</p>}
+          <button
+            disabled={!canManageLines}
+            onClick={async () => {
+              try {
+                await api.put(`/lines/${selectedLineId}/settings`, {
+                  webhookEnabled: Boolean(lineSettings.webhookEnabled),
+                  webhookByEvent: Boolean(lineSettings.webhookByEvent),
+                  webhookEvents: lineSettings.webhookEvents,
+                  webhookBase64: Boolean(lineSettings.webhookBase64),
+                  n8nWebhookUrl: lineSettings.n8nWebhookUrl,
+                  ignoreGroups: Boolean(lineSettings.ignoreGroups),
+                  rejectCalls: Boolean(lineSettings.rejectCalls),
+                  readMessages: Boolean(lineSettings.readMessages),
+                  readStatus: Boolean(lineSettings.readStatus),
+                  syncHistory: Boolean(lineSettings.syncHistory),
+                  alwaysOnline: Boolean(lineSettings.alwaysOnline)
+                });
+                await api.put(`/lines/${selectedLineId}/ratelimit`, {
+                  rateLimitMinute: Number(lineSettings.rateLimitMinute),
+                  rateLimitHour: Number(lineSettings.rateLimitHour),
+                  rateLimitDay: Number(lineSettings.rateLimitDay)
+                });
+                setSettingsStatus("Configuración guardada");
+                loadLines();
+              } catch (error) {
+                setSettingsStatus("Error al guardar configuración");
+              }
+            }}
+            className="mt-4 rounded bg-emerald-500 px-4 py-2 text-sm text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Guardar configuración de línea
+          </button>
+        </div>
+      )}
 
       <QRCodePanel qrState={qrState} />
     </div>
