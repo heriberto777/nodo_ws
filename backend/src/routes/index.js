@@ -3,6 +3,7 @@ const auth = require("../middlewares/auth.middleware");
 const authRoutes = require("./auth.routes");
 const linesRoutes = require("./lines.routes");
 const messagesRoutes = require("./messages.routes");
+const settingsRoutes = require("./settings.routes");
 const webhooksRoutes = require("./webhooks.routes");
 const healthRoutes = require("./health.routes");
 
@@ -13,6 +14,7 @@ router.use("/auth", authRoutes);
 router.use(auth);
 router.use("/lines", linesRoutes);
 router.use("/messages", messagesRoutes);
+router.use("/settings", settingsRoutes);
 router.use("/webhooks", webhooksRoutes);
 
 module.exports = router;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api/client.js";
 
 export default function Settings({ user }) {
@@ -7,6 +7,25 @@ export default function Settings({ user }) {
   const isAdmin = user?.role === "admin";
   const [newUser, setNewUser] = useState({ name: "", email: "", password: "", role: "operator" });
   const [userStatus, setUserStatus] = useState(null);
+  const [settingsStatus, setSettingsStatus] = useState(null);
+
+  const loadSettings = async () => {
+    try {
+      const response = await api.get("/settings");
+      setRateLimit({
+        perMinute: response.data.rateLimitMinute,
+        perHour: response.data.rateLimitHour,
+        perDay: response.data.rateLimitDay
+      });
+      setN8nWebhook(response.data.n8nWebhookUrl || "");
+    } catch (error) {
+      setSettingsStatus("No se pudieron cargar las configuraciones");
+    }
+  };
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -35,6 +54,26 @@ export default function Settings({ user }) {
             disabled={!isAdmin}
           />
         </div>
+        {settingsStatus && <p className="mt-3 text-xs text-emerald-400">{settingsStatus}</p>}
+        <button
+          disabled={!isAdmin}
+          onClick={async () => {
+            try {
+              await api.put("/settings", {
+                rateLimitMinute: Number(rateLimit.perMinute),
+                rateLimitHour: Number(rateLimit.perHour),
+                rateLimitDay: Number(rateLimit.perDay),
+                n8nWebhookUrl: n8nWebhook
+              });
+              setSettingsStatus("Configuración guardada");
+            } catch (error) {
+              setSettingsStatus("Error al guardar configuración");
+            }
+          }}
+          className="mt-4 rounded bg-emerald-500 px-4 py-2 text-sm text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Guardar configuración
+        </button>
       </div>
 
       <div className="rounded border border-slate-800 bg-slate-900 p-4">

@@ -25,3 +25,16 @@ CREATE TABLE IF NOT EXISTS users (
   role TEXT NOT NULL CHECK (role IN ('admin', 'operator', 'viewer')),
   created_at TIMESTAMP DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS settings (
+  id INTEGER PRIMARY KEY DEFAULT 1,
+  rate_limit_minute INTEGER NOT NULL DEFAULT 15,
+  rate_limit_hour INTEGER NOT NULL DEFAULT 300,
+  rate_limit_day INTEGER NOT NULL DEFAULT 1000,
+  n8n_webhook_url TEXT,
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+INSERT INTO settings (id)
+VALUES (1)
+ON CONFLICT (id) DO NOTHING;
