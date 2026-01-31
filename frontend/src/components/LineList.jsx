@@ -21,7 +21,25 @@ export default function LineList({
         >
           <div>
             <p className="text-sm text-slate-400">{line.name || "Línea"}</p>
-            <p className="text-lg font-semibold">{line.phone || line.lineId}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-lg font-semibold">{line.phone || line.lineId}</p>
+              <span
+                className={`inline-block h-2 w-2 rounded-full ${
+                  line.status === "CONNECTED" ? "bg-emerald-400 animate-pulse" : "bg-slate-600"
+                }`}
+              />
+              <span
+                className={`rounded px-2 py-1 text-[10px] uppercase tracking-wider ${
+                  line.status === "CONNECTED"
+                    ? "bg-emerald-500/20 text-emerald-300"
+                    : line.status === "QR"
+                    ? "bg-amber-500/20 text-amber-300"
+                    : "bg-slate-700/40 text-slate-300"
+                }`}
+              >
+                {line.status || "CREATED"}
+              </span>
+            </div>
             {line.n8n_webhook_url && (
               <p className="text-xs text-slate-500">Webhook: {line.n8n_webhook_url}</p>
             )}

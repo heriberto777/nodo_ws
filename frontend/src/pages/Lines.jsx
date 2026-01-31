@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client.js";
 import LineList from "../components/LineList.jsx";
 import QRCodePanel from "../components/QRCodePanel.jsx";
+import Modal from "../components/Modal.jsx";
 
 export default function Lines({ statusList, qrState, user }) {
   const [lines, setLines] = useState([]);
@@ -9,6 +10,9 @@ export default function Lines({ statusList, qrState, user }) {
   const [selectedLineId, setSelectedLineId] = useState(null);
   const [lineSettings, setLineSettings] = useState(null);
   const [settingsStatus, setSettingsStatus] = useState(null);
+  const [modal, setModal] = useState({ type: null, line: null });
+  const [webhookValue, setWebhookValue] = useState("");
+  const [rateValues, setRateValues] = useState({ perMinute: "", perHour: "", perDay: "" });
   const canManageLines = user?.role === "admin";
   const canOperateLines = user?.role === "admin" || user?.role === "operator";
 
@@ -46,27 +50,18 @@ export default function Lines({ statusList, qrState, user }) {
 
   const handleUpdateWebhook = async (lineId) => {
     const current = mergedLines.find((line) => `${line.id}` === `${lineId}`);
-    const webhook = window.prompt("Webhook n8n para esta línea", current?.n8n_webhook_url || "");
-    if (webhook === null) return;
-    await api.put(`/lines/${lineId}/webhook`, { n8nWebhookUrl: webhook });
-    loadLines();
+    setWebhookValue(current?.n8n_webhook_url || "");
+    setModal({ type: "webhook", line: current });
   };
 
   const handleUpdateRateLimit = async (lineId) => {
     const current = mergedLines.find((line) => `${line.id}` === `${lineId}`) || {};
-    const perMinute = window.prompt("Mensajes por minuto", current.rate_limit_minute || 15);
-    if (perMinute === null) return;
-    const perHour = window.prompt("Mensajes por hora", current.rate_limit_hour || 300);
-    if (perHour === null) return;
-    const perDay = window.prompt("Mensajes por día", current.rate_limit_day || 1000);
-    if (perDay === null) return;
-
-    await api.put(`/lines/${lineId}/ratelimit`, {
-      rateLimitMinute: Number(perMinute),
-      rateLimitHour: Number(perHour),
-      rateLimitDay: Number(perDay)
+    setRateValues({
+      perMinute: current.rate_limit_minute || 15,
+      perHour: current.rate_limit_hour || 300,
+      perDay: current.rate_limit_day || 1000
     });
-    loadLines();
+    setModal({ type: "ratelimit", line: current });
   };
 
   const statusMap = statusList.reduce((acc, status) => {
@@ -101,9 +96,8 @@ export default function Lines({ statusList, qrState, user }) {
   };
 
   const handleDeleteLine = async (lineId) => {
-    if (!window.confirm("Eliminar esta línea?")) return;
-    await api.delete(`/lines/${lineId}`);
-    loadLines();
+    const current = mergedLines.find((line) => `${line.id}` === `${lineId}`);
+    setModal({ type: "delete", line: current });
   };
 
   return (
@@ -295,6 +289,78 @@ export default function Lines({ statusList, qrState, user }) {
       )}
 
       <QRCodePanel qrState={qrState} />
+
+      <Modal
+        open={modal.type === "webhook"}
+        title="Webhook por línea"
+        confirmLabel="Guardar"
+        onClose={() => setModal({ type: null, line: null })}
+        onConfirm={async () => {
+          await api.put(`/lines/${modal.line.id}/webhook`, { n8nWebhookUrl: webhookValue });
+          setModal({ type: null, line: null });
+          loadLines();
+        }}
+      >
+        <input
+          value={webhookValue}
+          onChange={(event) => setWebhookValue(event.target.value)}
+          placeholder="https://..."
+          className="w-full rounded bg-slate-800 px-3 py-2 text-sm"
+        />
+      </Modal>
+
+      <Modal
+        open={modal.type === "ratelimit"}
+        title="Rate limit por línea"
+        confirmLabel="Guardar"
+        onClose={() => setModal({ type: null, line: null })}
+        onConfirm={async () => {
+          await api.put(`/lines/${modal.line.id}/ratelimit`, {
+            rateLimitMinute: Number(rateValues.perMinute),
+            rateLimitHour: Number(rateValues.perHour),
+            rateLimitDay: Number(rateValues.perDay)
+          });
+          setModal({ type: null, line: null });
+          loadLines();
+        }}
+      >
+        <div className="grid gap-3 md:grid-cols-3">
+          <input
+            value={rateValues.perMinute}
+            onChange={(event) => setRateValues({ ...rateValues, perMinute: event.target.value })}
+            className="rounded bg-slate-800 px-3 py-2 text-sm"
+            placeholder="Minuto"
+          />
+          <input
+            value={rateValues.perHour}
+            onChange={(event) => setRateValues({ ...rateValues, perHour: event.target.value })}
+            className="rounded bg-slate-800 px-3 py-2 text-sm"
+            placeholder="Hora"
+          />
+          <input
+            value={rateValues.perDay}
+            onChange={(event) => setRateValues({ ...rateValues, perDay: event.target.value })}
+            className="rounded bg-slate-800 px-3 py-2 text-sm"
+            placeholder="Día"
+          />
+        </div>
+      </Modal>
+
+      <Modal
+        open={modal.type === "delete"}
+        title="Eliminar línea"
+        confirmLabel="Eliminar"
+        onClose={() => setModal({ type: null, line: null })}
+        onConfirm={async () => {
+          await api.delete(`/lines/${modal.line.id}`);
+          setModal({ type: null, line: null });
+          loadLines();
+        }}
+      >
+        <p className="text-sm text-slate-300">
+          ¿Eliminar la línea {modal.line?.name || modal.line?.id}?
+        </p>
+      </Modal>
     </div>
   );
 }
