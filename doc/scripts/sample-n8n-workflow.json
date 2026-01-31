@@ -1,0 +1,14 @@
+{
+  "name": "WhatsApp Inbound Example",
+  "nodes": [
+    {
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "parameters": {
+        "path": "wa-inbound",
+        "httpMethod": "POST"
+      }
+    }
+  ]
+}
