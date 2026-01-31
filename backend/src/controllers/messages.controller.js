@@ -3,7 +3,7 @@ const createError = require("http-errors");
 const { sendMessage } = require("../services/whatsapp.service");
 const { checkRateLimit } = require("../services/ratelimit.service");
 const { isAllowed } = require("../services/warmup.service");
-const { createMessage } = require("../models/message.model");
+const { createMessage, listRecent } = require("../models/message.model");
 
 const sendSchema = Joi.object({
   lineId: Joi.string().required(),
@@ -39,4 +39,10 @@ const send = async (req, res) => {
   res.status(201).json({ ok: true, message: record });
 };
 
-module.exports = { send };
+const recent = async (req, res) => {
+  const limit = Number(req.query.limit) || 50;
+  const items = await listRecent(Math.min(limit, 200));
+  res.json(items);
+};
+
+module.exports = { send, recent };

@@ -8,4 +8,12 @@ const createMessage = async ({ lineId, direction, to, from, body }) => {
   return result.rows[0];
 };
 
-module.exports = { createMessage };
+const listRecent = async (limit = 50) => {
+  const result = await db.query(
+    "SELECT id, line_id, direction, to_number, from_number, body, created_at FROM messages ORDER BY created_at DESC LIMIT $1",
+    [limit]
+  );
+  return result.rows;
+};
+
+module.exports = { createMessage, listRecent };

@@ -34,6 +34,7 @@ Ejecuta el script en backend/scripts/create-admin.js con nombre, correo y contra
 - POST /api/auth/register
 - POST /api/auth/login
 - POST /api/messages/send
+- GET /api/messages/recent
 - GET /api/lines
 - POST /api/lines
 - POST /api/lines/:id/connect

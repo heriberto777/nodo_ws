@@ -3,6 +3,7 @@ const EventEmitter = require("events");
 const logger = require("../config/logger");
 const { SESSION_STATUSES } = require("../utils/constants");
 const { updateStatus, getLineSettings } = require("../models/line.model");
+const { createMessage } = require("../models/message.model");
 const { forwardInboundMessage } = require("./n8n.service");
 
 class SessionManager extends EventEmitter {
@@ -104,6 +105,17 @@ class SessionManager extends EventEmitter {
         }
       }
       await forwardInboundMessage(payload);
+      try {
+        await createMessage({
+          lineId,
+          direction: "IN",
+          to: message.to,
+          from: message.from,
+          body: message.body
+        });
+      } catch (error) {
+        logger.error("Failed to store inbound message", { lineId, error: error.message });
+      }
       this.emitMessage(payload);
     });
 
