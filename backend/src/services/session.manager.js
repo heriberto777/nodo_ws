@@ -3,7 +3,7 @@ const EventEmitter = require("events");
 const logger = require("../config/logger");
 const { SESSION_STATUSES } = require("../utils/constants");
 const { updateStatus, getLineSettings } = require("../models/line.model");
-const { forwardInboundMessage, forwardEvent } = require("./n8n.service");
+const { forwardInboundMessage } = require("./n8n.service");
 
 class SessionManager extends EventEmitter {
   constructor() {
@@ -55,14 +55,12 @@ class SessionManager extends EventEmitter {
       await updateStatus(lineId, session.status);
       this.emitStatus(lineId, session.status);
       await this.refreshSettings(lineId);
-      await forwardEvent({ lineId, event: "ready", payload: { status: session.status } });
     });
 
     client.on("authenticated", async () => {
       session.status = SESSION_STATUSES.CONNECTED;
       await updateStatus(lineId, session.status);
       this.emitStatus(lineId, session.status);
-      await forwardEvent({ lineId, event: "authenticated", payload: { status: session.status } });
     });
 
     client.on("disconnected", async (reason) => {
@@ -70,7 +68,6 @@ class SessionManager extends EventEmitter {
       session.ready = false;
       await updateStatus(lineId, session.status);
       this.emitStatus(lineId, session.status);
-      await forwardEvent({ lineId, event: "disconnected", payload: { reason } });
     });
 
     client.on("message", async (message) => {
@@ -107,81 +104,7 @@ class SessionManager extends EventEmitter {
         }
       }
       await forwardInboundMessage(payload);
-      await forwardEvent({ lineId, event: "message", payload });
       this.emitMessage(payload);
-    });
-
-    client.on("message_create", async (message) => {
-      await forwardEvent({
-        lineId,
-        event: "message_create",
-        payload: {
-          from: message.from,
-          to: message.to,
-          body: message.body,
-          timestamp: message.timestamp
-        }
-      });
-    });
-
-    client.on("message_ack", async (message, ack) => {
-      await forwardEvent({
-        lineId,
-        event: "message_ack",
-        payload: { messageId: message.id?._serialized, ack }
-      });
-    });
-
-    client.on("message_reaction", async (reaction) => {
-      await forwardEvent({ lineId, event: "message_reaction", payload: reaction });
-    });
-
-    client.on("message_revoke_everyone", async (after, before) => {
-      await forwardEvent({
-        lineId,
-        event: "message_revoke_everyone",
-        payload: { after, before }
-      });
-    });
-
-    client.on("message_revoke_me", async (message) => {
-      await forwardEvent({
-        lineId,
-        event: "message_revoke_me",
-        payload: { messageId: message.id?._serialized }
-      });
-    });
-
-    client.on("group_update", async (notification) => {
-      await forwardEvent({ lineId, event: "group_update", payload: notification });
-    });
-
-    client.on("group_join", async (notification) => {
-      await forwardEvent({ lineId, event: "group_join", payload: notification });
-    });
-
-    client.on("group_leave", async (notification) => {
-      await forwardEvent({ lineId, event: "group_leave", payload: notification });
-    });
-
-    client.on("contact_changed", async (message, oldId, newId, isContact) => {
-      await forwardEvent({
-        lineId,
-        event: "contact_changed",
-        payload: { messageId: message.id?._serialized, oldId, newId, isContact }
-      });
-    });
-
-    client.on("change_state", async (state) => {
-      await forwardEvent({ lineId, event: "change_state", payload: { state } });
-    });
-
-    client.on("loading_screen", async (percent, message) => {
-      await forwardEvent({ lineId, event: "loading_screen", payload: { percent, message } });
-    });
-
-    client.on("incoming_call", async (call) => {
-      await forwardEvent({ lineId, event: "incoming_call", payload: call });
     });
 
     return session;

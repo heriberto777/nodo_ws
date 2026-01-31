@@ -4,7 +4,7 @@ import StatusCard from "../components/StatusCard.jsx";
 import QRCodePanel from "../components/QRCodePanel.jsx";
 import LogsPanel from "../components/LogsPanel.jsx";
 
-export default function Dashboard({ statusList, qrState, logs }) {
+export default function Dashboard({ statusList, qrState, logs, user }) {
   const [lineMap, setLineMap] = useState({});
 
   useEffect(() => {
@@ -41,7 +41,24 @@ export default function Dashboard({ statusList, qrState, logs }) {
       </div>
       <QRCodePanel qrState={qrState} />
       <div className="lg:col-span-3">
-        <LogsPanel logs={logs} lineMap={lineMap} />
+        <LogsPanel
+          logs={logs}
+          lineMap={lineMap}
+          onDeleteLine={
+            user?.role === "admin"
+              ? async (lineId) => {
+                  if (!window.confirm("Eliminar esta línea?")) return;
+                  await api.delete(`/lines/${lineId}`);
+                  const response = await api.get("/lines");
+                  const map = response.data.reduce((acc, line) => {
+                    acc[line.id] = line;
+                    return acc;
+                  }, {});
+                  setLineMap(map);
+                }
+              : null
+          }
+        />
       </div>
     </div>
   );

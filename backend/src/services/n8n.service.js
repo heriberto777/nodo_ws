@@ -5,7 +5,7 @@ const { getSettings } = require("../models/settings.model");
 const { db } = require("../models/index");
 const { getLineSettings } = require("../models/line.model");
 
-const resolveWebhookUrl = async (lineId, event) => {
+const resolveWebhookUrl = async (lineId) => {
   let webhookUrl = null;
   let webhookEnabled = false;
   let webhookBase64 = false;
@@ -26,22 +26,14 @@ const resolveWebhookUrl = async (lineId, event) => {
   return { url: webhookUrl, webhookBase64 };
 };
 
-const forwardEvent = async ({ lineId, event, payload }) => {
-  const { url, webhookBase64 } = await resolveWebhookUrl(lineId, event);
+const forwardInboundMessage = async (payload) => {
+  if (!payload?.lineId) return;
+
+  const { url } = await resolveWebhookUrl(payload.lineId);
   if (!url) return;
 
-  const body = {
-    event,
-    lineId,
-    ...payload
-  };
-
-  if (webhookBase64) {
-    body.webhookBase64 = true;
-  }
-
   try {
-    await axios.post(url, body, {
+    await axios.post(url, payload, {
       headers: { "x-api-key": env.apiKey }
     });
   } catch (error) {
@@ -49,41 +41,4 @@ const forwardEvent = async ({ lineId, event, payload }) => {
   }
 };
 
-const forwardInboundMessage = async (payload) => {
-  let webhookUrl = env.n8nWebhookUrl;
-  let webhookEnabled = true;
-
-  try {
-    if (payload?.lineId) {
-      const result = await db.query(
-        "SELECT n8n_webhook_url, webhook_enabled FROM lines WHERE id = $1",
-        [payload.lineId]
-      );
-      const lineWebhook = result.rows[0]?.n8n_webhook_url;
-      webhookEnabled = Boolean(result.rows[0]?.webhook_enabled);
-      if (lineWebhook) webhookUrl = lineWebhook;
-    }
-  } catch (error) {
-    logger.error("Failed to load line webhook", { error: error.message });
-  }
-  try {
-    const settings = await getSettings();
-    if (settings?.n8n_webhook_url && !webhookUrl) {
-      webhookUrl = settings.n8n_webhook_url;
-    }
-  } catch (error) {
-    logger.error("Failed to load settings", { error: error.message });
-  }
-
-  if (!webhookEnabled || !webhookUrl) return;
-
-  try {
-    await axios.post(webhookUrl, payload, {
-      headers: { "x-api-key": env.apiKey }
-    });
-  } catch (error) {
-    logger.error("Failed to forward to n8n", { error: error.message });
-  }
-};
-
-module.exports = { forwardInboundMessage, forwardEvent };
+module.exports = { forwardInboundMessage };
