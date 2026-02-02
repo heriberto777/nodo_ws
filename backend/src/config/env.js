@@ -14,5 +14,9 @@ module.exports = {
   n8nWebhookUrl: process.env.N8N_WEBHOOK_URL || "",
   antiBanMinDelayMs: Number(process.env.ANTIBAN_MIN_DELAY_MS || 5000),
   antiBanMaxDelayMs: Number(process.env.ANTIBAN_MAX_DELAY_MS || 20000),
-  safeModeDurationMs: Number(process.env.SAFE_MODE_DURATION_MS || 30 * 60 * 1000)
+  safeModeDurationMs: Number(process.env.SAFE_MODE_DURATION_MS || 30 * 60 * 1000),
+  autoKillBrowserLocks:
+    process.env.AUTO_KILL_BROWSER_LOCKS === "true" ||
+    (process.env.AUTO_KILL_BROWSER_LOCKS !== "false" &&
+      (process.env.NODE_ENV || "development") !== "production")
 };

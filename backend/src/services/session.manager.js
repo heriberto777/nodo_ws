@@ -26,6 +26,62 @@ class SessionManager extends EventEmitter {
     this.lastQr = new Map();
   }
 
+  getSessionDir(lineId) {
+    const path = require("path");
+    return path.join(process.cwd(), ".wwebjs_auth", `session-${lineId}`);
+  }
+
+  async findSessionLockFiles(lineId) {
+    lineId = String(lineId);
+    const fs = require("fs/promises");
+    const path = require("path");
+    const sessionDir = this.getSessionDir(lineId);
+    const lockFiles = ["SingletonLock", "SingletonSocket", "SingletonCookie", "lockfile"];
+    const locations = [sessionDir, path.join(sessionDir, "Default")];
+    const found = [];
+
+    for (const location of locations) {
+      for (const file of lockFiles) {
+        try {
+          await fs.access(path.join(location, file));
+          found.push(path.join(location, file));
+        } catch {
+          // ignore missing file
+        }
+      }
+    }
+
+    return found;
+  }
+
+  async killBrowserForSession(lineId) {
+    lineId = String(lineId);
+    if (!env.autoKillBrowserLocks) return false;
+    if (process.platform !== "win32") return false;
+
+    const { exec } = require("child_process");
+    const sessionDir = this.getSessionDir(lineId);
+    const escapedDir = sessionDir.replace(/\\/g, "\\\\");
+    const command =
+      "powershell -NoProfile -Command " +
+      `"Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*--user-data-dir=${escapedDir}*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"`;
+
+    return new Promise((resolve) => {
+      exec(command, (error, stdout, stderr) => {
+        if (error) {
+          logger.warn("Failed to kill browser process", {
+            lineId,
+            error: error.message,
+            stderr: stderr || null
+          });
+          resolve(false);
+          return;
+        }
+        resolve(true);
+      });
+    });
+  }
+
   bumpCounter(counterMap, lineId, windowMs) {
     lineId = String(lineId);
     const now = Date.now();
@@ -437,6 +493,13 @@ class SessionManager extends EventEmitter {
       }
 
       if (message.includes("already running") || message.includes("userDataDir")) {
+        const lockInfo = await this.checkSessionLock(lineId);
+        if (lockInfo?.locked) {
+          session.lastError = `session_locked:${lockInfo.files.join(",")}`;
+          logger.warn("Browser conflict with lock files", { lineId, files: lockInfo.files });
+          return session;
+        }
+        await this.killBrowserForSession(lineId);
         try {
           await this.cleanupSession(lineId);
         } catch (cleanupError) {
@@ -445,7 +508,7 @@ class SessionManager extends EventEmitter {
             error: cleanupError.message
           });
         }
-        this.scheduleReconnect(lineId, "BROWSER_CONFLICT");
+        this.scheduleReconnect(lineId, "BROWSER_CONFLICT", { reset: true });
         return this.sessions.get(lineId) || session;
       }
 
@@ -525,8 +588,9 @@ class SessionManager extends EventEmitter {
       logger.warn("Failed to reset session during cleanup", { lineId, error: error.message });
     }
 
-    const sessionDir = path.join(process.cwd(), ".wwebjs_auth", `session-${lineId}`);
+    const sessionDir = this.getSessionDir(lineId);
     const lockFiles = ["SingletonLock", "SingletonSocket", "SingletonCookie", "lockfile"];
+    const lockLocations = [sessionDir, path.join(sessionDir, "Default")];
     const tryRemove = async (attempt) => {
       try {
         await fs.rm(sessionDir, { recursive: true, force: true });
@@ -535,11 +599,13 @@ class SessionManager extends EventEmitter {
       } catch (error) {
         const message = String(error?.message || "");
         if (message.includes("EBUSY") && attempt < 3) {
-          for (const file of lockFiles) {
-            try {
-              await fs.rm(path.join(sessionDir, file), { force: true });
-            } catch {
-              // ignore
+          for (const location of lockLocations) {
+            for (const file of lockFiles) {
+              try {
+                await fs.rm(path.join(location, file), { force: true });
+              } catch {
+                // ignore
+              }
             }
           }
           await new Promise((resolve) => setTimeout(resolve, 500));
@@ -574,17 +640,22 @@ class SessionManager extends EventEmitter {
       });
     }
 
+    await this.killBrowserForSession(lineId);
+
     const cleaned = await this.cleanupSession(lineId);
     if (!cleaned) {
       const path = require("path");
       const fs = require("fs/promises");
-      const sessionDir = path.join(process.cwd(), ".wwebjs_auth", `session-${lineId}`);
-      const lockFiles = ["SingletonLock", "SingletonSocket", "SingletonCookie"];
-      for (const file of lockFiles) {
-        try {
-          await fs.rm(path.join(sessionDir, file), { force: true });
-        } catch {
-          // ignore
+      const sessionDir = this.getSessionDir(lineId);
+      const lockFiles = ["SingletonLock", "SingletonSocket", "SingletonCookie", "lockfile"];
+      const lockLocations = [sessionDir, path.join(sessionDir, "Default")];
+      for (const location of lockLocations) {
+        for (const file of lockFiles) {
+          try {
+            await fs.rm(path.join(location, file), { force: true });
+          } catch {
+            // ignore
+          }
         }
       }
     }
@@ -625,21 +696,7 @@ class SessionManager extends EventEmitter {
 
   async checkSessionLock(lineId) {
     lineId = String(lineId);
-    const path = require("path");
-    const fs = require("fs/promises");
-    const sessionDir = path.join(process.cwd(), ".wwebjs_auth", `session-${lineId}`);
-    const lockFiles = ["SingletonLock", "SingletonSocket", "SingletonCookie"];
-    const found = [];
-
-    for (const file of lockFiles) {
-      try {
-        await fs.access(path.join(sessionDir, file));
-        found.push(file);
-      } catch {
-        // ignore missing file
-      }
-    }
-
+    const found = await this.findSessionLockFiles(lineId);
     return { locked: found.length > 0, files: found };
   }
 
