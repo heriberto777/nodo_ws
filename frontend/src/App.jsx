@@ -30,6 +30,17 @@ const baseTabs = [
 const wsUrl = import.meta.env.VITE_WS_URL || "http://localhost:4000";
 
 export default function App() {
+  const safeParseJson = (value) => {
+    if (!value || typeof value !== "string") return null;
+    const trimmed = value.trim();
+    if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return null;
+    try {
+      return JSON.parse(trimmed);
+    } catch (error) {
+      return null;
+    }
+  };
+
   const [activeTab, setActiveTab] = useState(() => {
     return localStorage.getItem("wa_active_tab") || "dashboard";
   });
@@ -50,12 +61,12 @@ export default function App() {
     const token = localStorage.getItem("wa_token");
     if (!stored) return null;
     if (!token) return null;
-    try {
-      return JSON.parse(stored);
-    } catch (error) {
+    const parsed = safeParseJson(stored);
+    if (!parsed) {
       localStorage.removeItem("wa_user");
       return null;
     }
+    return parsed;
   });
 
   const socket = useMemo(() => (user ? io(wsUrl) : null), [user]);

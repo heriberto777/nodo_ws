@@ -7,6 +7,7 @@ export default function Conversations() {
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [activeSessions, setActiveSessions] = useState([]);
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
   const [sendStatus, setSendStatus] = useState(null);
@@ -40,6 +41,20 @@ export default function Conversations() {
   useEffect(() => {
     loadLines();
     const intervalId = setInterval(loadLines, 8000);
+    return () => clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    const loadActive = async () => {
+      try {
+        const response = await api.get("/lines/active-sessions");
+        setActiveSessions(response.data || []);
+      } catch {
+        setActiveSessions([]);
+      }
+    };
+    loadActive();
+    const intervalId = setInterval(loadActive, 8000);
     return () => clearInterval(intervalId);
   }, []);
 
@@ -132,8 +147,21 @@ export default function Conversations() {
     }
   };
 
+  const handleReconnect = async () => {
+    if (!selectedLineId) return;
+    setSendStatus(null);
+    try {
+      await api.post(`/lines/${selectedLineId}/qr/cleanup`);
+      await api.post(`/lines/${selectedLineId}/connect`);
+      setSendStatus("Reconectando línea, espera el QR si es necesario.");
+    } catch {
+      setSendStatus("No se pudo reconectar la línea.");
+    }
+  };
+
   const selectedLine = lines.find((line) => `${line.id}` === `${selectedLineId}`);
-  const canSend = selectedLine?.status === "CONNECTED";
+  const activeSession = activeSessions.find((session) => `${session.lineId}` === `${selectedLineId}`);
+  const canSend = Boolean(activeSession?.ready);
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">
@@ -203,6 +231,12 @@ export default function Conversations() {
               >
                 {canSend ? "CONECTADA" : "DESCONECTADA"}
               </span>
+              <button
+                onClick={handleReconnect}
+                className="rounded-full border border-slate-700/70 bg-slate-900/80 px-2 py-1 text-[10px] text-slate-300 hover:bg-slate-800"
+              >
+                Reconectar
+              </button>
             </div>
           ) : null}
         </div>
