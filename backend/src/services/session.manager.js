@@ -57,29 +57,52 @@ class SessionManager extends EventEmitter {
   async killBrowserForSession(lineId) {
     lineId = String(lineId);
     if (!env.autoKillBrowserLocks) return false;
-    if (process.platform !== "win32") return false;
-
     const { exec } = require("child_process");
     const sessionDir = this.getSessionDir(lineId);
-    const escapedDir = sessionDir.replace(/\\/g, "\\\\");
-    const command =
-      "powershell -NoProfile -Command " +
-      `"Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*--user-data-dir=${escapedDir}*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"`;
 
-    return new Promise((resolve) => {
-      exec(command, (error, stdout, stderr) => {
-        if (error) {
-          logger.warn("Failed to kill browser process", {
-            lineId,
-            error: error.message,
-            stderr: stderr || null
-          });
-          resolve(false);
-          return;
-        }
-        resolve(true);
+    if (process.platform === "win32") {
+      const escapedDir = sessionDir.replace(/\\/g, "\\\\");
+      const command =
+        "powershell -NoProfile -Command " +
+        `"Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*--user-data-dir=${escapedDir}*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"`;
+
+      return new Promise((resolve) => {
+        exec(command, (error, stdout, stderr) => {
+          if (error) {
+            logger.warn("Failed to kill browser process", {
+              lineId,
+              error: error.message,
+              stderr: stderr || null
+            });
+            resolve(false);
+            return;
+          }
+          resolve(true);
+        });
       });
-    });
+    }
+
+    if (process.platform === "linux") {
+      const escapedDir = sessionDir.replace(/"/g, "\\\"");
+      const command = `pkill -f -- "--user-data-dir=${escapedDir}"`;
+
+      return new Promise((resolve) => {
+        exec(command, (error, stdout, stderr) => {
+          if (error) {
+            logger.warn("Failed to kill browser process", {
+              lineId,
+              error: error.message,
+              stderr: stderr || null
+            });
+            resolve(false);
+            return;
+          }
+          resolve(true);
+        });
+      });
+    }
+
+    return false;
   }
 
   bumpCounter(counterMap, lineId, windowMs) {
