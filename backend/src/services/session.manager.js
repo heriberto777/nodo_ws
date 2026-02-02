@@ -246,11 +246,26 @@ class SessionManager extends EventEmitter {
         }
       }
 
+      let displayName = null;
+      try {
+        const contact = await message.getContact();
+        displayName =
+          contact?.pushname ||
+          contact?.name ||
+          contact?.shortName ||
+          contact?.verifiedName ||
+          contact?.formattedName ||
+          null;
+      } catch (error) {
+        logger.warn("Failed to resolve contact name", { lineId, error: error.message });
+      }
+
       const payload = {
         lineId,
         from: message.from,
         to: message.to,
         author: message.author || message.from,
+        senderName: displayName,
         body: message.body,
         timestamp: message.timestamp,
         isGroup: message.isGroupMsg
@@ -271,7 +286,8 @@ class SessionManager extends EventEmitter {
         const result = await handleInboundMessage({
           lineId,
           from: message.from,
-          body: message.body
+          body: message.body,
+          displayName
         });
         conversation = result?.conversation || null;
         replyText = result?.reply || null;

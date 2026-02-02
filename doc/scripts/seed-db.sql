@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS conversations (
   id SERIAL PRIMARY KEY,
   line_id INTEGER NOT NULL REFERENCES lines(id) ON DELETE CASCADE,
   contact TEXT NOT NULL,
+  display_name TEXT,
   status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'PAUSED', 'CLOSED')),
   last_message_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT NOW(),
@@ -152,3 +153,4 @@ ALTER TABLE settings ADD COLUMN IF NOT EXISTS report_enabled BOOLEAN;
 ALTER TABLE settings ADD COLUMN IF NOT EXISTS report_cron TEXT;
 ALTER TABLE settings ADD COLUMN IF NOT EXISTS last_report_at TIMESTAMP;
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS conversation_id INTEGER;
+ALTER TABLE conversations ADD COLUMN IF NOT EXISTS display_name TEXT;

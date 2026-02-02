@@ -47,8 +47,12 @@ const evaluateFlow = (definition, text, currentState) => {
   return null;
 };
 
-const handleInboundMessage = async ({ lineId, from, body }) => {
-  const conversation = await getOrCreateConversation({ lineId, contact: from });
+const handleInboundMessage = async ({ lineId, from, body, displayName }) => {
+  const conversation = await getOrCreateConversation({
+    lineId,
+    contact: from,
+    displayName
+  });
   await touchConversation(conversation.id);
 
   const text = (body || "").toLowerCase();

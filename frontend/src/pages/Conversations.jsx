@@ -174,8 +174,10 @@ export default function Conversations() {
                   : "border-slate-800 bg-slate-900 hover:bg-slate-800"
               }`}
             >
-              <div className="font-semibold">{item.contact}</div>
-              <div className="text-xs text-slate-400">{item.status}</div>
+              <div className="font-semibold">
+                {item.display_name || item.contact}
+              </div>
+              <div className="text-xs text-slate-400">{item.contact}</div>
             </button>
           ))}
           {!conversations.length && (
@@ -211,13 +213,17 @@ export default function Conversations() {
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-700/70 bg-slate-900 text-xs text-slate-300">
-                  {selectedConversation.contact?.slice(0, 2)?.toUpperCase() || "WA"}
+                  {(selectedConversation.display_name || selectedConversation.contact)
+                    ?.slice(0, 2)
+                    ?.toUpperCase() || "WA"}
                 </div>
                 <div>
                   <div className="text-sm font-semibold text-slate-100">
+                    {selectedConversation.display_name || selectedConversation.contact}
+                  </div>
+                  <div className="text-[11px] text-slate-500">
                     {selectedConversation.contact}
                   </div>
-                  <div className="text-[11px] text-slate-500">Conversación WhatsApp</div>
                 </div>
               </div>
               <span className="rounded-full border border-slate-700/70 bg-slate-900/80 px-2 py-1 text-[11px] text-slate-300">
