@@ -154,8 +154,14 @@ export default function Conversations() {
       await api.post(`/lines/${selectedLineId}/qr/cleanup`);
       await api.post(`/lines/${selectedLineId}/connect`);
       setSendStatus("Reconectando línea, espera el QR si es necesario.");
-    } catch {
-      setSendStatus("No se pudo reconectar la línea.");
+    } catch (error) {
+      if (error?.response?.status === 409) {
+        setSendStatus("La línea ya está inicializando o conectada.");
+      } else if (error?.response?.status === 500) {
+        setSendStatus("Sesión en conflicto. Intenta limpiar sesión y reconectar.");
+      } else {
+        setSendStatus("No se pudo reconectar la línea.");
+      }
     }
   };
 

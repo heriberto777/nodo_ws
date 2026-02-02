@@ -20,6 +20,8 @@ class SessionManager extends EventEmitter {
     this.io = null;
     this.qrCounters = new Map();
     this.disconnectCounters = new Map();
+    this.reconnectAttempts = new Map();
+    this.reconnectTimers = new Map();
     this.safeModeUntil = new Map();
     this.lastQr = new Map();
   }
@@ -40,6 +42,30 @@ class SessionManager extends EventEmitter {
   resetCounter(counterMap, lineId) {
     lineId = String(lineId);
     counterMap.delete(lineId);
+  }
+
+  scheduleReconnect(lineId, reason) {
+    lineId = String(lineId);
+    if (this.reconnectTimers.has(lineId)) return;
+
+    const attempt = (this.reconnectAttempts.get(lineId) || 0) + 1;
+    this.reconnectAttempts.set(lineId, attempt);
+    const baseDelay = Math.min(60000, 5000 * attempt);
+    const jitter = Math.floor(Math.random() * 2000);
+    const delayMs = baseDelay + jitter;
+
+    const timer = setTimeout(async () => {
+      this.reconnectTimers.delete(lineId);
+      try {
+        await this.connect(lineId);
+        logger.info("Reconnect attempt executed", { lineId, attempt, reason });
+      } catch (error) {
+        logger.warn("Reconnect attempt failed", { lineId, attempt, reason, error: error.message });
+        this.scheduleReconnect(lineId, "RETRY_FAILED");
+      }
+    }, delayMs);
+
+    this.reconnectTimers.set(lineId, timer);
   }
 
   enableSafeMode(lineId, reason) {
@@ -167,6 +193,7 @@ class SessionManager extends EventEmitter {
       await this.refreshSettings(lineId);
       this.resetCounter(this.qrCounters, lineId);
       this.resetCounter(this.disconnectCounters, lineId);
+      this.reconnectAttempts.delete(lineId);
     });
 
     client.on("authenticated", async () => {
@@ -184,6 +211,7 @@ class SessionManager extends EventEmitter {
       session.lastError = message || "auth_failure";
       await updateStatus(lineId, session.status);
       this.emitStatus(lineId, session.status);
+      this.scheduleReconnect(lineId, "AUTH_FAILURE");
     });
 
     client.on("disconnected", async (reason) => {
@@ -228,6 +256,10 @@ class SessionManager extends EventEmitter {
         this.emitRisk(event);
         this.enableSafeMode(lineId, "FREQUENT_DISCONNECT");
         await this.evaluateRisk(lineId);
+      }
+
+      if (reason !== "BAN") {
+        this.scheduleReconnect(lineId, "DISCONNECTED");
       }
     });
 
@@ -347,6 +379,11 @@ class SessionManager extends EventEmitter {
     const session = this.createSession(lineId);
     if (!session.client) return session;
 
+    if (this.reconnectTimers.has(lineId)) {
+      clearTimeout(this.reconnectTimers.get(lineId));
+      this.reconnectTimers.delete(lineId);
+    }
+
     if (session.ready || session.initializing) {
       return session;
     }
@@ -373,6 +410,21 @@ class SessionManager extends EventEmitter {
       session.lastError = error?.message || "initialize_failed";
       session.lastInitAttemptAt = new Date().toISOString();
       logger.error("Failed to initialize session", { lineId, error: error.message });
+
+      const message = String(error?.message || "");
+      if (message.includes("already running") || message.includes("userDataDir")) {
+        try {
+          await this.cleanupSession(lineId);
+        } catch (cleanupError) {
+          logger.warn("Cleanup after browser conflict failed", {
+            lineId,
+            error: cleanupError.message
+          });
+        }
+        this.scheduleReconnect(lineId, "BROWSER_CONFLICT");
+        return this.sessions.get(lineId) || session;
+      }
+
       throw error;
     }
   }
@@ -448,6 +500,7 @@ class SessionManager extends EventEmitter {
     const sessionDir = path.join(process.cwd(), ".wwebjs_auth", `session-${lineId}`);
     try {
       await fs.rm(sessionDir, { recursive: true, force: true });
+      this.sessions.delete(lineId);
       return true;
     } catch (error) {
       logger.error("Failed to cleanup session directory", { lineId, error: error.message });

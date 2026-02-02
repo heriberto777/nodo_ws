@@ -13,14 +13,14 @@ export default function Lines({ statusList, qrState, user }) {
     webhookEnabled: false,
     webhookBase64: false,
     ignoreGroups: true,
-    readMessages: true
+      if (modal.type !== "qr" && modal.type !== "diagnostic") return;
   });
   const [selectedLineId, setSelectedLineId] = useState(null);
   const [lineSettings, setLineSettings] = useState(null);
   const [settingsStatus, setSettingsStatus] = useState(null);
   const [modal, setModal] = useState({ type: null, line: null });
   const [webhookValue, setWebhookValue] = useState("");
-  const [rateValues, setRateValues] = useState({ perMinute: "", perHour: "", perDay: "" });
+      if ((modal.type !== "qr" && modal.type !== "diagnostic") || !modal.line?.id) {
   const [qrPreview, setQrPreview] = useState(null);
   const [qrInfo, setQrInfo] = useState(null);
   const [activeSessions, setActiveSessions] = useState([]);
@@ -32,13 +32,21 @@ export default function Lines({ statusList, qrState, user }) {
     setLines(response.data);
   };
 
+    const handleDiagnose = async (lineId) => {
+      const current = mergedLines.find((line) => `${line.id}` === `${lineId}`) || { id: lineId };
+      setModal({ type: "diagnostic", line: current });
+    };
   useEffect(() => {
     loadLines();
-    const intervalId = setInterval(() => {
+      (modal.type === "qr" || modal.type === "diagnostic") &&
+      qrState?.lineId &&
+      `${qrState.lineId}` === `${modal.line?.id}`;
       loadLines();
-    }, 5000);
+      (modal.type === "qr" || modal.type === "diagnostic") &&
+      qrPreview?.lineId &&
+      `${qrPreview.lineId}` === `${modal.line?.id}`;
 
-    return () => clearInterval(intervalId);
+      modal.type === "qr" || modal.type === "diagnostic"
   }, []);
 
   useEffect(() => {
@@ -49,6 +57,7 @@ export default function Lines({ statusList, qrState, user }) {
       } catch {
         setActiveSessions([]);
       }
+              onDiagnose={handleDiagnose}
     };
     loadSessions();
     const intervalId = setInterval(loadSessions, 10000);
@@ -56,22 +65,27 @@ export default function Lines({ statusList, qrState, user }) {
   }, []);
 
   const handleSubmit = async (event) => {
-    event.preventDefault();
-    if (!form.name || !form.phone) return;
+          open={modal.type === "qr" || modal.type === "diagnostic"}
+          title={
+            modal.type === "diagnostic"
+              ? `Diagnóstico de línea ${modal.line?.name || modal.line?.id || ""}`
+              : `QR de línea ${modal.line?.name || modal.line?.id || ""}`
+          }
     await api.post("/lines", form);
     setForm({
       name: "",
       phone: "",
       n8nWebhookUrl: "",
-      webhookEnabled: false,
-      webhookBase64: false,
-      ignoreGroups: true,
-      readMessages: true
-    });
-    loadLines();
-  };
-
-  const handleConnect = async (lineId) => {
+          {modal.type !== "diagnostic" &&
+            (qrMatchesLine ? (
+              <QRCodePanel qrState={qrState} />
+            ) : previewMatchesLine ? (
+              <QRCodePanel qrState={qrPreview} />
+            ) : (
+              <div className="rounded border border-dashed border-slate-700 p-6 text-slate-400">
+                QR no disponible para esta línea. Espera a que se genere luego de conectar.
+              </div>
+            ))}
     try {
       await api.post(`/lines/${lineId}/connect`);
       loadLines();
@@ -150,17 +164,26 @@ export default function Lines({ statusList, qrState, user }) {
     setModal({ type: "qr", line: current });
   };
 
+  const handleDiagnose = async (lineId) => {
+    const current = mergedLines.find((line) => `${line.id}` === `${lineId}`) || { id: lineId };
+    setModal({ type: "diagnostic", line: current });
+  };
+
   const handleResetSafeMode = async (lineId) => {
     await api.post(`/lines/${lineId}/safe-mode/reset`);
     loadLines();
   };
 
   const qrMatchesLine =
-    modal.type === "qr" && qrState?.lineId && `${qrState.lineId}` === `${modal.line?.id}`;
+    (modal.type === "qr" || modal.type === "diagnostic") &&
+    qrState?.lineId &&
+    `${qrState.lineId}` === `${modal.line?.id}`;
   const previewMatchesLine =
-    modal.type === "qr" && qrPreview?.lineId && `${qrPreview.lineId}` === `${modal.line?.id}`;
+    (modal.type === "qr" || modal.type === "diagnostic") &&
+    qrPreview?.lineId &&
+    `${qrPreview.lineId}` === `${modal.line?.id}`;
   const modalLineStatus =
-    modal.type === "qr"
+    modal.type === "qr" || modal.type === "diagnostic"
       ? statusMap[modal.line?.id] || modal.line?.status || "CREATED"
       : null;
   const statusLabel =
@@ -175,14 +198,14 @@ export default function Lines({ statusList, qrState, user }) {
       : "Conectando";
 
   useEffect(() => {
-    if (modal.type !== "qr") return;
+    if (modal.type !== "qr" && modal.type !== "diagnostic") return;
     if (modalLineStatus === "CONNECTED") {
       setModal({ type: null, line: null });
     }
   }, [modal.type, modalLineStatus]);
 
   useEffect(() => {
-    if (modal.type !== "qr" || !modal.line?.id) {
+    if ((modal.type !== "qr" && modal.type !== "diagnostic") || !modal.line?.id) {
       setQrPreview(null);
       setQrInfo(null);
       return undefined;
@@ -535,8 +558,12 @@ export default function Lines({ statusList, qrState, user }) {
       </Modal>
 
       <Modal
-        open={modal.type === "qr"}
-        title={`QR de línea ${modal.line?.name || modal.line?.id || ""}`}
+        open={modal.type === "qr" || modal.type === "diagnostic"}
+        title={
+          modal.type === "diagnostic"
+            ? `Diagnóstico de línea ${modal.line?.name || modal.line?.id || ""}`
+            : `QR de línea ${modal.line?.name || modal.line?.id || ""}`
+        }
         confirmLabel="Cerrar"
         onClose={() => setModal({ type: null, line: null })}
         onConfirm={() => setModal({ type: null, line: null })}
@@ -560,15 +587,16 @@ export default function Lines({ statusList, qrState, user }) {
             Ya existe un navegador usando esa sesión. Detén ese proceso y luego pulsa “Regenerar QR”.
           </div>
         )}
-        {qrMatchesLine ? (
-          <QRCodePanel qrState={qrState} />
-        ) : previewMatchesLine ? (
-          <QRCodePanel qrState={qrPreview} />
-        ) : (
-          <div className="rounded border border-dashed border-slate-700 p-6 text-slate-400">
-            QR no disponible para esta línea. Espera a que se genere luego de conectar.
-          </div>
-        )}
+        {modal.type !== "diagnostic" &&
+          (qrMatchesLine ? (
+            <QRCodePanel qrState={qrState} />
+          ) : previewMatchesLine ? (
+            <QRCodePanel qrState={qrPreview} />
+          ) : (
+            <div className="rounded border border-dashed border-slate-700 p-6 text-slate-400">
+              QR no disponible para esta línea. Espera a que se genere luego de conectar.
+            </div>
+          ))}
         <button
           onClick={async () => {
             if (!modal.line?.id) return;

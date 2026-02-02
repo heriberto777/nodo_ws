@@ -5,6 +5,7 @@ export default function LineList({
   onUpdateWebhook,
   onUpdateRateLimit,
   onSelect,
+  onDiagnose,
   onDelete,
   onResetSafeMode,
   onShowQr,
@@ -59,6 +60,15 @@ export default function LineList({
                 className="rounded bg-slate-800 px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Config
+              </button>
+            )}
+            {onDiagnose && (
+              <button
+                onClick={() => onDiagnose(line.id || line.lineId)}
+                disabled={disabled}
+                className="rounded bg-slate-800 px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Diagnóstico
               </button>
             )}
             <button
