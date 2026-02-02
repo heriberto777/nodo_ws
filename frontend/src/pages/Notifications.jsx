@@ -50,7 +50,7 @@ export default function Notifications() {
           </button>
         </div>
       </div>
-      <div className="mt-4 space-y-3">
+      <div className="app-scroll mt-4 max-h-[520px] space-y-3 overflow-auto">
         {items.map((item) => (
           <div
             key={item.id}

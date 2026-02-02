@@ -16,7 +16,7 @@ export default function AuditLogs() {
   return (
     <div className="rounded border border-slate-800 bg-slate-900 p-4">
       <h2 className="text-lg font-semibold">Auditoría</h2>
-      <div className="mt-4 space-y-3">
+      <div className="app-scroll mt-4 max-h-[520px] space-y-3 overflow-auto">
         {logs.map((log) => (
           <div key={log.id} className="rounded bg-slate-800 p-3 text-sm">
             <div className="flex items-center justify-between">
@@ -27,7 +27,7 @@ export default function AuditLogs() {
               <div className="text-xs text-slate-500">{log.created_at}</div>
             </div>
             {log.details && (
-              <pre className="mt-2 rounded bg-slate-950 p-2 text-xs">
+              <pre className="app-scroll mt-2 max-h-40 overflow-auto rounded bg-slate-950 p-2 text-xs">
                 {JSON.stringify(log.details, null, 2)}
               </pre>
             )}

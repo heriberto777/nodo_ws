@@ -90,7 +90,7 @@ export default function BotFlows() {
                   Eliminar
                 </button>
               </div>
-              <pre className="mt-2 max-h-48 overflow-auto rounded bg-slate-950 p-2 text-xs">
+              <pre className="app-scroll mt-2 max-h-48 overflow-auto rounded bg-slate-950 p-2 text-xs">
                 {JSON.stringify(flow.definition || {}, null, 2)}
               </pre>
             </div>

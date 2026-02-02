@@ -5,3 +5,110 @@
 body {
   font-family: "Inter", system-ui, sans-serif;
 }
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #1f2937 #0b1220;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #0b1220;
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+  border-radius: 999px;
+  border: 2px solid #0b1220;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #2b3748 0%, #1f2937 100%);
+}
+
+.chat-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #1f2937 #0b1220;
+}
+
+.chat-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+
+.chat-scroll::-webkit-scrollbar-track {
+  background: #0b1220;
+  border-radius: 999px;
+}
+
+.chat-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+  border-radius: 999px;
+  border: 2px solid #0b1220;
+}
+
+.chat-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #2b3748 0%, #1f2937 100%);
+}
+
+.app-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #1f2937 #0b1220;
+}
+
+.app-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+
+.app-scroll::-webkit-scrollbar-track {
+  background: #0b1220;
+  border-radius: 999px;
+}
+
+.app-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+  border-radius: 999px;
+  border: 2px solid #0b1220;
+}
+
+.app-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #2b3748 0%, #1f2937 100%);
+}
+
+.chat-surface {
+  background: radial-gradient(1200px 420px at 50% 0%, rgba(16, 185, 129, 0.08), transparent 55%),
+    linear-gradient(180deg, #0b1220 0%, #0b1220 30%, #0f172a 100%);
+}
+
+.bubble {
+  position: relative;
+  border-radius: 18px;
+}
+
+.bubble-in::after,
+.bubble-out::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 0 0 12px 0;
+}
+
+.bubble-in::after {
+  left: -6px;
+  background: #0f172a;
+  border-left: 1px solid rgba(30, 41, 59, 0.8);
+  border-bottom: 1px solid rgba(30, 41, 59, 0.8);
+}
+
+.bubble-out::after {
+  right: -6px;
+  background: rgba(16, 185, 129, 0.15);
+  border-right: 1px solid rgba(16, 185, 129, 0.4);
+  border-bottom: 1px solid rgba(16, 185, 129, 0.4);
+}

@@ -2,7 +2,7 @@ export default function LogsPanel({ logs, lineMap, onDeleteLine }) {
   return (
     <div className="rounded border border-slate-800 bg-slate-900 p-4">
       <p className="text-sm text-slate-400">Eventos recientes</p>
-      <ul className="mt-3 space-y-2 text-xs text-slate-300">
+      <ul className="app-scroll mt-3 max-h-72 space-y-2 overflow-auto text-xs text-slate-300">
         {logs.map((log, index) => (
           <li key={index} className="border-b border-slate-800 pb-2">
             <p className="font-semibold">
