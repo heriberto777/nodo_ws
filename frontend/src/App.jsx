@@ -22,7 +22,9 @@ export default function App() {
   const [authView, setAuthView] = useState("login");
   const [user, setUser] = useState(() => {
     const stored = localStorage.getItem("wa_user");
+    const token = localStorage.getItem("wa_token");
     if (!stored) return null;
+    if (!token) return null;
     try {
       return JSON.parse(stored);
     } catch (error) {
@@ -59,6 +61,17 @@ export default function App() {
       socket.disconnect();
     };
   }, [socket]);
+
+  useEffect(() => {
+    const handleLogout = () => {
+      localStorage.removeItem("wa_token");
+      localStorage.removeItem("wa_user");
+      setUser(null);
+    };
+
+    window.addEventListener("wa:logout", handleLogout);
+    return () => window.removeEventListener("wa:logout", handleLogout);
+  }, []);
 
   useEffect(() => {
     if (!tabs.length) return;

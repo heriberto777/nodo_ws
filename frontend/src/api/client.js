@@ -13,3 +13,15 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error?.response?.status === 401) {
+      localStorage.removeItem("wa_token");
+      localStorage.removeItem("wa_user");
+      window.dispatchEvent(new Event("wa:logout"));
+    }
+    return Promise.reject(error);
+  }
+);
