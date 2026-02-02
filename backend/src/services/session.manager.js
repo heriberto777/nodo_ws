@@ -21,6 +21,7 @@ class SessionManager extends EventEmitter {
     this.qrCounters = new Map();
     this.disconnectCounters = new Map();
     this.safeModeUntil = new Map();
+    this.lastQr = new Map();
   }
 
   bumpCounter(counterMap, lineId, windowMs) {
@@ -116,6 +117,7 @@ class SessionManager extends EventEmitter {
 
     client.on("qr", async (qr) => {
       session.status = SESSION_STATUSES.QR;
+      this.lastQr.set(lineId, qr);
       await updateStatus(lineId, session.status);
       this.emitStatus(lineId, session.status);
       this.emitQr(lineId, qr);
@@ -144,6 +146,7 @@ class SessionManager extends EventEmitter {
     client.on("ready", async () => {
       session.status = SESSION_STATUSES.CONNECTED;
       session.ready = true;
+      this.lastQr.delete(lineId);
       await updateStatus(lineId, session.status);
       this.emitStatus(lineId, session.status);
       await this.refreshSettings(lineId);
@@ -153,6 +156,7 @@ class SessionManager extends EventEmitter {
 
     client.on("authenticated", async () => {
       session.status = SESSION_STATUSES.CONNECTED;
+      this.lastQr.delete(lineId);
       await updateStatus(lineId, session.status);
       this.emitStatus(lineId, session.status);
       this.resetCounter(this.qrCounters, lineId);
@@ -373,6 +377,10 @@ class SessionManager extends EventEmitter {
 
   emitQr(lineId, qr) {
     if (this.io) this.io.emit("qr", { lineId, qr });
+  }
+
+  getLastQr(lineId) {
+    return this.lastQr.get(lineId) || null;
   }
 
   emitMessage(payload) {

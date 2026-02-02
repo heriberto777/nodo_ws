@@ -13,6 +13,7 @@ export default function Lines({ statusList, qrState, user }) {
   const [modal, setModal] = useState({ type: null, line: null });
   const [webhookValue, setWebhookValue] = useState("");
   const [rateValues, setRateValues] = useState({ perMinute: "", perHour: "", perDay: "" });
+  const [qrPreview, setQrPreview] = useState(null);
   const canManageLines = user?.role === "admin";
   const canOperateLines = user?.role === "admin" || user?.role === "operator";
 
@@ -124,6 +125,8 @@ export default function Lines({ statusList, qrState, user }) {
 
   const qrMatchesLine =
     modal.type === "qr" && qrState?.lineId && `${qrState.lineId}` === `${modal.line?.id}`;
+  const previewMatchesLine =
+    modal.type === "qr" && qrPreview?.lineId && `${qrPreview.lineId}` === `${modal.line?.id}`;
   const modalLineStatus =
     modal.type === "qr"
       ? statusMap[modal.line?.id] || modal.line?.status || "CREATED"
@@ -138,6 +141,40 @@ export default function Lines({ statusList, qrState, user }) {
       : modalLineStatus === "BLOCKED"
       ? "Bloqueado"
       : "Conectando";
+
+  useEffect(() => {
+    if (modal.type !== "qr") return;
+    if (modalLineStatus === "CONNECTED") {
+      setModal({ type: null, line: null });
+    }
+  }, [modal.type, modalLineStatus]);
+
+  useEffect(() => {
+    if (modal.type !== "qr" || !modal.line?.id) {
+      setQrPreview(null);
+      return undefined;
+    }
+
+    let active = true;
+    const fetchQr = async () => {
+      try {
+        const response = await api.get(`/lines/${modal.line.id}/qr`);
+        if (active && response.data?.qr) {
+          setQrPreview({ lineId: modal.line.id, qr: response.data.qr });
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    fetchQr();
+    const intervalId = setInterval(fetchQr, 2000);
+
+    return () => {
+      active = false;
+      clearInterval(intervalId);
+    };
+  }, [modal.type, modal.line?.id]);
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -413,6 +450,8 @@ export default function Lines({ statusList, qrState, user }) {
         </div>
         {qrMatchesLine ? (
           <QRCodePanel qrState={qrState} />
+        ) : previewMatchesLine ? (
+          <QRCodePanel qrState={qrPreview} />
         ) : (
           <div className="rounded border border-dashed border-slate-700 p-6 text-slate-400">
             QR no disponible para esta línea. Espera a que se genere luego de conectar.

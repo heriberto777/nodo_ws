@@ -10,6 +10,7 @@ router.post("/", requireRole(["admin"]), asyncHandler(linesController.create));
 router.post("/:id/connect", requireRole(["admin", "operator"]), asyncHandler(linesController.connect));
 router.post("/:id/disconnect", requireRole(["admin", "operator"]), asyncHandler(linesController.disconnect));
 router.get("/:id/settings", requireRole(["admin", "operator"]), asyncHandler(linesController.getSettings));
+router.get("/:id/qr", requireRole(["admin", "operator"]), asyncHandler(linesController.getQr));
 router.put("/:id/webhook", requireRole(["admin"]), asyncHandler(linesController.updateLineWebhook));
 router.put("/:id/ratelimit", requireRole(["admin"]), asyncHandler(linesController.updateLineRateLimit));
 router.put("/:id/settings", requireRole(["admin"]), asyncHandler(linesController.updateSettings));

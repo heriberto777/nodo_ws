@@ -139,6 +139,13 @@ const remove = async (req, res) => {
   res.json({ ok: true });
 };
 
+const getQr = async (req, res) => {
+  const line = await getLineById(req.params.id);
+  if (!line) throw createError(404, "Line not found");
+  const qr = sessionManager.getLastQr(`${line.id}`);
+  res.json({ qr });
+};
+
 const getSafeMode = async (req, res) => {
   const line = await getLineById(req.params.id);
   if (!line) throw createError(404, "Line not found");
@@ -163,5 +170,6 @@ module.exports = {
   updateSettings,
   remove,
   getSafeMode,
-  resetSafeMode
+  resetSafeMode,
+  getQr
 };
