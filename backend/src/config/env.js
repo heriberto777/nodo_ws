@@ -11,5 +11,8 @@ module.exports = {
   corsOrigin: process.env.CORS_ORIGIN || "*",
   databaseUrl: process.env.DATABASE_URL || "",
   redisUrl: process.env.REDIS_URL || "",
-  n8nWebhookUrl: process.env.N8N_WEBHOOK_URL || ""
+  n8nWebhookUrl: process.env.N8N_WEBHOOK_URL || "",
+  antiBanMinDelayMs: Number(process.env.ANTIBAN_MIN_DELAY_MS || 5000),
+  antiBanMaxDelayMs: Number(process.env.ANTIBAN_MAX_DELAY_MS || 20000),
+  safeModeDurationMs: Number(process.env.SAFE_MODE_DURATION_MS || 30 * 60 * 1000)
 };

@@ -6,6 +6,7 @@ export default function LineList({
   onUpdateRateLimit,
   onSelect,
   onDelete,
+  onResetSafeMode,
   disabled
 }) {
   if (!lines.length) {
@@ -42,6 +43,11 @@ export default function LineList({
             </div>
             {line.n8n_webhook_url && (
               <p className="text-xs text-slate-500">Webhook: {line.n8n_webhook_url}</p>
+            )}
+            {line.safeMode?.active && (
+              <p className="mt-1 text-xs text-rose-400">
+                Safe mode activo{line.safeMode.reason ? ` (${line.safeMode.reason})` : ""}
+              </p>
             )}
           </div>
           <div className="flex flex-wrap gap-2">
@@ -84,6 +90,15 @@ export default function LineList({
                 className="rounded bg-slate-800 px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Rate
+              </button>
+            )}
+            {onResetSafeMode && line.safeMode?.active && (
+              <button
+                onClick={() => onResetSafeMode(line.id || line.lineId)}
+                disabled={disabled}
+                className="rounded bg-amber-500 px-3 py-2 text-xs text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Reset Safe
               </button>
             )}
             {onDelete && (

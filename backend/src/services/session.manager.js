@@ -1,16 +1,87 @@
 const { Client, LocalAuth } = require("whatsapp-web.js");
 const EventEmitter = require("events");
 const logger = require("../config/logger");
+const env = require("../config/env");
 const { SESSION_STATUSES } = require("../utils/constants");
 const { updateStatus, getLineSettings } = require("../models/line.model");
 const { createMessage } = require("../models/message.model");
+const { createRiskEvent, getRiskStats } = require("../models/risk.model");
+const { createNotification } = require("../models/notification.model");
+const { sendAlertWebhook } = require("./alert.service");
 const { forwardInboundMessage } = require("./n8n.service");
+const { handleInboundMessage } = require("./chatbot.service");
+const { checkRateLimit } = require("./ratelimit.service");
+const { isAllowed } = require("./warmup.service");
 
 class SessionManager extends EventEmitter {
   constructor() {
     super();
     this.sessions = new Map();
     this.io = null;
+    this.qrCounters = new Map();
+    this.disconnectCounters = new Map();
+    this.safeModeUntil = new Map();
+  }
+
+  bumpCounter(counterMap, lineId, windowMs) {
+    const now = Date.now();
+    const entry = counterMap.get(lineId);
+    if (!entry || now - entry.firstAt > windowMs) {
+      counterMap.set(lineId, { count: 1, firstAt: now });
+      return 1;
+    }
+    entry.count += 1;
+    counterMap.set(lineId, entry);
+    return entry.count;
+  }
+
+  resetCounter(counterMap, lineId) {
+    counterMap.delete(lineId);
+  }
+
+  enableSafeMode(lineId, reason) {
+    const until = Date.now() + env.safeModeDurationMs;
+    this.safeModeUntil.set(lineId, { until, reason });
+    logger.warn("Safe mode enabled", { lineId, reason, until });
+  }
+
+  async evaluateRisk(lineId) {
+    try {
+      const stats = await getRiskStats({ lineId, windowMinutes: 60 });
+      if (stats.high >= 1 || stats.medium >= 3 || stats.total >= 5) {
+        this.enableSafeMode(lineId, "RISK_THRESHOLD");
+      }
+    } catch (error) {
+      logger.error("Failed to evaluate risk", { lineId, error: error.message });
+    }
+  }
+
+  isSafeMode(lineId) {
+    const entry = this.safeModeUntil.get(lineId);
+    if (!entry) return false;
+    if (Date.now() > entry.until) {
+      this.safeModeUntil.delete(lineId);
+      return false;
+    }
+    return true;
+  }
+
+  getSafeModeInfo(lineId) {
+    const entry = this.safeModeUntil.get(lineId);
+    if (!entry) return { active: false };
+    if (Date.now() > entry.until) {
+      this.safeModeUntil.delete(lineId);
+      return { active: false };
+    }
+    return {
+      active: true,
+      until: new Date(entry.until).toISOString(),
+      reason: entry.reason
+    };
+  }
+
+  clearSafeMode(lineId) {
+    this.safeModeUntil.delete(lineId);
   }
 
   bindSocket(io) {
@@ -48,6 +119,26 @@ class SessionManager extends EventEmitter {
       await updateStatus(lineId, session.status);
       this.emitStatus(lineId, session.status);
       this.emitQr(lineId, qr);
+
+      const qrCount = this.bumpCounter(this.qrCounters, lineId, 10 * 60 * 1000);
+      if (qrCount >= 3) {
+        const event = await createRiskEvent({
+          lineId,
+          type: "QR_REPEAT",
+          severity: "MEDIUM",
+          details: { count: qrCount }
+        });
+        await createNotification({
+          lineId,
+          type: event.type,
+          severity: event.severity,
+          message: "QR repetido"
+        });
+        await sendAlertWebhook(event);
+        this.emitRisk(event);
+        this.enableSafeMode(lineId, "QR_REPEAT");
+        await this.evaluateRisk(lineId);
+      }
     });
 
     client.on("ready", async () => {
@@ -56,12 +147,15 @@ class SessionManager extends EventEmitter {
       await updateStatus(lineId, session.status);
       this.emitStatus(lineId, session.status);
       await this.refreshSettings(lineId);
+      this.resetCounter(this.qrCounters, lineId);
+      this.resetCounter(this.disconnectCounters, lineId);
     });
 
     client.on("authenticated", async () => {
       session.status = SESSION_STATUSES.CONNECTED;
       await updateStatus(lineId, session.status);
       this.emitStatus(lineId, session.status);
+      this.resetCounter(this.qrCounters, lineId);
     });
 
     client.on("disconnected", async (reason) => {
@@ -69,6 +163,43 @@ class SessionManager extends EventEmitter {
       session.ready = false;
       await updateStatus(lineId, session.status);
       this.emitStatus(lineId, session.status);
+
+      const disconnects = this.bumpCounter(this.disconnectCounters, lineId, 15 * 60 * 1000);
+      if (reason === "BAN") {
+        const event = await createRiskEvent({
+          lineId,
+          type: "BANNED",
+          severity: "HIGH",
+          details: { reason }
+        });
+        await createNotification({
+          lineId,
+          type: event.type,
+          severity: event.severity,
+          message: "Número bloqueado"
+        });
+        await sendAlertWebhook(event);
+        this.emitRisk(event);
+        this.enableSafeMode(lineId, "BANNED");
+        await this.evaluateRisk(lineId);
+      } else if (disconnects >= 3) {
+        const event = await createRiskEvent({
+          lineId,
+          type: "FREQUENT_DISCONNECT",
+          severity: "MEDIUM",
+          details: { count: disconnects, reason }
+        });
+        await createNotification({
+          lineId,
+          type: event.type,
+          severity: event.severity,
+          message: "Desconexiones frecuentes"
+        });
+        await sendAlertWebhook(event);
+        this.emitRisk(event);
+        this.enableSafeMode(lineId, "FREQUENT_DISCONNECT");
+        await this.evaluateRisk(lineId);
+      }
     });
 
     client.on("message", async (message) => {
@@ -105,9 +236,23 @@ class SessionManager extends EventEmitter {
         }
       }
       await forwardInboundMessage(payload);
+      let conversation = null;
+      let replyText = null;
+      try {
+        const result = await handleInboundMessage({
+          lineId,
+          from: message.from,
+          body: message.body
+        });
+        conversation = result?.conversation || null;
+        replyText = result?.reply || null;
+      } catch (error) {
+        logger.error("Failed to update conversation state", { lineId, error: error.message });
+      }
       try {
         await createMessage({
           lineId,
+          conversationId: conversation?.id,
           direction: "IN",
           to: message.to,
           from: message.from,
@@ -115,6 +260,36 @@ class SessionManager extends EventEmitter {
         });
       } catch (error) {
         logger.error("Failed to store inbound message", { lineId, error: error.message });
+      }
+
+      if (replyText && !this.isSafeMode(lineId)) {
+        try {
+          if (!(await isAllowed(lineId))) {
+            logger.warn("Warm-up limit exceeded for auto-reply", { lineId });
+          } else {
+            await checkRateLimit(lineId);
+            const min = env.antiBanMinDelayMs;
+            const max = env.antiBanMaxDelayMs;
+            const delay = Math.floor(Math.random() * (max - min + 1)) + min;
+            if (delay > 0) {
+              await new Promise((resolve) => setTimeout(resolve, delay));
+            }
+            if (session.client) {
+              await session.client.sendMessage(message.from, replyText);
+            }
+
+            await createMessage({
+              lineId,
+              conversationId: conversation?.id,
+              direction: "OUT",
+              to: message.from,
+              from: lineId,
+              body: replyText
+            });
+          }
+        } catch (error) {
+          logger.error("Failed to send bot reply", { lineId, error: error.message });
+        }
       }
       this.emitMessage(payload);
     });
@@ -202,6 +377,10 @@ class SessionManager extends EventEmitter {
 
   emitMessage(payload) {
     if (this.io) this.io.emit("message", payload);
+  }
+
+  emitRisk(payload) {
+    if (this.io) this.io.emit("risk:event", payload);
   }
 }
 

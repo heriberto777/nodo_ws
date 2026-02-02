@@ -108,6 +108,11 @@ export default function Lines({ statusList, qrState, user }) {
     setModal({ type: "delete", line: current });
   };
 
+  const handleResetSafeMode = async (lineId) => {
+    await api.post(`/lines/${lineId}/safe-mode/reset`);
+    loadLines();
+  };
+
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       <div className="lg:col-span-2 space-y-6">
@@ -163,6 +168,7 @@ export default function Lines({ statusList, qrState, user }) {
             onUpdateWebhook={handleUpdateWebhook}
             onUpdateRateLimit={handleUpdateRateLimit}
             onSelect={handleSelectLine}
+            onResetSafeMode={canManageLines ? handleResetSafeMode : null}
             onDelete={canManageLines ? handleDeleteLine : null}
             disabled={!canOperateLines}
           />

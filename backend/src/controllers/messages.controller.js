@@ -4,6 +4,7 @@ const { sendMessage } = require("../services/whatsapp.service");
 const { checkRateLimit } = require("../services/ratelimit.service");
 const { isAllowed } = require("../services/warmup.service");
 const { createMessage, listRecent } = require("../models/message.model");
+const { getOrCreateConversation, touchConversation } = require("../models/conversation.model");
 
 const sendSchema = Joi.object({
   lineId: Joi.string().required(),
@@ -17,7 +18,7 @@ const send = async (req, res) => {
 
   const { lineId, to, message } = req.body;
 
-  if (!isAllowed(lineId)) {
+  if (!(await isAllowed(lineId))) {
     throw createError(429, "Warm-up limit exceeded");
   }
 
@@ -27,9 +28,13 @@ const send = async (req, res) => {
     throw createError(429, "Rate limit exceeded");
   }
 
+  const conversation = await getOrCreateConversation({ lineId, contact: to });
+  await touchConversation(conversation.id);
+
   await sendMessage({ lineId, to, message });
   const record = await createMessage({
     lineId,
+    conversationId: conversation.id,
     direction: "OUT",
     to,
     from: lineId,

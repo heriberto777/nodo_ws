@@ -20,6 +20,8 @@
     "ioredis": "^5.4.1",
     "joi": "^17.12.3",
     "jsonwebtoken": "^9.0.2",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.9.14",
     "pg": "^8.11.5",
     "puppeteer": "^22.11.1",
     "rate-limiter-flexible": "^3.0.6",

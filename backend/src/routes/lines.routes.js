@@ -13,6 +13,8 @@ router.get("/:id/settings", requireRole(["admin", "operator"]), asyncHandler(lin
 router.put("/:id/webhook", requireRole(["admin"]), asyncHandler(linesController.updateLineWebhook));
 router.put("/:id/ratelimit", requireRole(["admin"]), asyncHandler(linesController.updateLineRateLimit));
 router.put("/:id/settings", requireRole(["admin"]), asyncHandler(linesController.updateSettings));
+router.get("/:id/safe-mode", requireRole(["admin"]), asyncHandler(linesController.getSafeMode));
+router.post("/:id/safe-mode/reset", requireRole(["admin"]), asyncHandler(linesController.resetSafeMode));
 router.delete("/:id", requireRole(["admin"]), asyncHandler(linesController.remove));
 
 module.exports = router;

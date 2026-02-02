@@ -54,7 +54,11 @@ const create = async (req, res) => {
 
 const list = async (req, res) => {
   const lines = await listLines();
-  res.json(lines);
+  const enriched = lines.map((line) => ({
+    ...line,
+    safeMode: sessionManager.getSafeModeInfo(line.id)
+  }));
+  res.json(enriched);
 };
 
 const connect = async (req, res) => {
@@ -135,6 +139,19 @@ const remove = async (req, res) => {
   res.json({ ok: true });
 };
 
+const getSafeMode = async (req, res) => {
+  const line = await getLineById(req.params.id);
+  if (!line) throw createError(404, "Line not found");
+  res.json(sessionManager.getSafeModeInfo(line.id));
+};
+
+const resetSafeMode = async (req, res) => {
+  const line = await getLineById(req.params.id);
+  if (!line) throw createError(404, "Line not found");
+  sessionManager.clearSafeMode(line.id);
+  res.json({ ok: true });
+};
+
 module.exports = {
   create,
   list,
@@ -144,5 +161,7 @@ module.exports = {
   updateLineRateLimit,
   getSettings,
   updateSettings,
-  remove
+  remove,
+  getSafeMode,
+  resetSafeMode
 };
