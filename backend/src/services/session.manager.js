@@ -416,6 +416,19 @@ class SessionManager extends EventEmitter {
       logger.error("Failed to initialize session", { lineId, error: error.message });
 
       const message = String(error?.message || "");
+      if (message.includes("Target closed")) {
+        try {
+          await this.cleanupSession(lineId);
+        } catch (cleanupError) {
+          logger.warn("Cleanup after target closed failed", {
+            lineId,
+            error: cleanupError.message
+          });
+        }
+        this.scheduleReconnect(lineId, "TARGET_CLOSED", { reset: true });
+        return this.sessions.get(lineId) || session;
+      }
+
       if (message.includes("already running") || message.includes("userDataDir")) {
         try {
           await this.cleanupSession(lineId);
