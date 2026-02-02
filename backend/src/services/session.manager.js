@@ -25,6 +25,7 @@ class SessionManager extends EventEmitter {
   }
 
   bumpCounter(counterMap, lineId, windowMs) {
+    lineId = String(lineId);
     const now = Date.now();
     const entry = counterMap.get(lineId);
     if (!entry || now - entry.firstAt > windowMs) {
@@ -37,16 +38,19 @@ class SessionManager extends EventEmitter {
   }
 
   resetCounter(counterMap, lineId) {
+    lineId = String(lineId);
     counterMap.delete(lineId);
   }
 
   enableSafeMode(lineId, reason) {
+    lineId = String(lineId);
     const until = Date.now() + env.safeModeDurationMs;
     this.safeModeUntil.set(lineId, { until, reason });
     logger.warn("Safe mode enabled", { lineId, reason, until });
   }
 
   async evaluateRisk(lineId) {
+    lineId = String(lineId);
     try {
       const stats = await getRiskStats({ lineId, windowMinutes: 60 });
       if (stats.high >= 1 || stats.medium >= 3 || stats.total >= 5) {
@@ -58,6 +62,7 @@ class SessionManager extends EventEmitter {
   }
 
   isSafeMode(lineId) {
+    lineId = String(lineId);
     const entry = this.safeModeUntil.get(lineId);
     if (!entry) return false;
     if (Date.now() > entry.until) {
@@ -68,6 +73,7 @@ class SessionManager extends EventEmitter {
   }
 
   getSafeModeInfo(lineId) {
+    lineId = String(lineId);
     const entry = this.safeModeUntil.get(lineId);
     if (!entry) return { active: false };
     if (Date.now() > entry.until) {
@@ -82,6 +88,7 @@ class SessionManager extends EventEmitter {
   }
 
   clearSafeMode(lineId) {
+    lineId = String(lineId);
     this.safeModeUntil.delete(lineId);
   }
 
@@ -94,6 +101,7 @@ class SessionManager extends EventEmitter {
   }
 
   createSession(lineId) {
+    lineId = String(lineId);
     if (this.sessions.has(lineId)) return this.sessions.get(lineId);
 
     const client = new Client({
@@ -319,6 +327,7 @@ class SessionManager extends EventEmitter {
   }
 
   async connect(lineId) {
+    lineId = String(lineId);
     const session = this.createSession(lineId);
     if (!session.client) return session;
 
@@ -353,6 +362,7 @@ class SessionManager extends EventEmitter {
   }
 
   async disconnect(lineId) {
+    lineId = String(lineId);
     const session = this.sessions.get(lineId);
     if (!session) return null;
 
@@ -365,6 +375,7 @@ class SessionManager extends EventEmitter {
   }
 
   async removeSession(lineId) {
+    lineId = String(lineId);
     const session = this.sessions.get(lineId);
     if (!session) return null;
     try {
@@ -377,6 +388,7 @@ class SessionManager extends EventEmitter {
   }
 
   async resetSession(lineId) {
+    lineId = String(lineId);
     const session = this.sessions.get(lineId);
     if (!session) return null;
     try {
@@ -402,11 +414,13 @@ class SessionManager extends EventEmitter {
   }
 
   async resetAndConnect(lineId) {
+    lineId = String(lineId);
     await this.resetSession(lineId);
     return this.connect(lineId);
   }
 
   async cleanupSession(lineId) {
+    lineId = String(lineId);
     const path = require("path");
     const fs = require("fs/promises");
     try {
@@ -426,6 +440,7 @@ class SessionManager extends EventEmitter {
   }
 
   async refreshSettings(lineId) {
+    lineId = String(lineId);
     try {
       const settings = await getLineSettings(lineId);
       const session = this.sessions.get(lineId);
@@ -440,11 +455,11 @@ class SessionManager extends EventEmitter {
   }
 
   getSession(lineId) {
-    return this.sessions.get(lineId);
+    return this.sessions.get(String(lineId));
   }
 
   getSessionInfo(lineId) {
-    const session = this.sessions.get(lineId);
+    const session = this.sessions.get(String(lineId));
     if (!session) return null;
     return {
       lineId: session.lineId,
@@ -484,7 +499,7 @@ class SessionManager extends EventEmitter {
   }
 
   getLastQr(lineId) {
-    return this.lastQr.get(lineId) || null;
+    return this.lastQr.get(String(lineId)) || null;
   }
 
   emitMessage(payload) {

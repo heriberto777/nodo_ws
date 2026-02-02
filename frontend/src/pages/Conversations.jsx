@@ -10,6 +10,8 @@ export default function Conversations() {
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
   const [sendStatus, setSendStatus] = useState(null);
+  const [locationMode, setLocationMode] = useState(false);
+  const [location, setLocation] = useState({ latitude: "", longitude: "", name: "", address: "" });
 
   const loadLines = async () => {
     const response = await api.get("/lines");
@@ -53,6 +55,7 @@ export default function Conversations() {
     loadMessages(selectedConversation.id);
     setReplyText("");
     setSendStatus(null);
+    setLocationMode(false);
   }, [selectedConversation]);
 
   const selectedMessages = useMemo(() => messages.slice().reverse(), [messages]);
@@ -70,6 +73,7 @@ export default function Conversations() {
     setSendStatus(null);
     try {
       await api.post(`/conversations/${selectedConversation.id}/reply`, {
+        type: "text",
         message: replyText.trim()
       });
       setReplyText("");
@@ -84,6 +88,44 @@ export default function Conversations() {
         setSendStatus("Límite superado (warm-up o rate limit).");
       } else {
         setSendStatus("Error al enviar el mensaje.");
+      }
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleSendLocation = async () => {
+    if (!selectedConversation) return;
+    const latitude = Number(location.latitude);
+    const longitude = Number(location.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      setSendStatus("Latitud/longitud inválidas.");
+      return;
+    }
+    setSending(true);
+    setSendStatus(null);
+    try {
+      await api.post(`/conversations/${selectedConversation.id}/reply`, {
+        type: "location",
+        location: {
+          latitude,
+          longitude,
+          name: location.name || null,
+          address: location.address || null
+        }
+      });
+      setLocation({ latitude: "", longitude: "", name: "", address: "" });
+      await loadMessages(selectedConversation.id);
+      setSendStatus("Ubicación enviada.");
+    } catch (error) {
+      if (error?.response?.status === 409) {
+        setSendStatus("La línea no está conectada.");
+      } else if (error?.response?.status === 423) {
+        setSendStatus("Safe mode activo. No se pueden enviar mensajes.");
+      } else if (error?.response?.status === 429) {
+        setSendStatus("Límite superado (warm-up o rate limit).");
+      } else {
+        setSendStatus("Error al enviar la ubicación.");
       }
     } finally {
       setSending(false);
@@ -208,6 +250,52 @@ export default function Conversations() {
               >
                 Enviar
               </button>
+            </div>
+            <div className="mt-3 rounded border border-slate-800 bg-slate-900 p-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-slate-400">Acciones rápidas</p>
+                <button
+                  onClick={() => setLocationMode((prev) => !prev)}
+                  className="rounded bg-slate-800 px-2 py-1 text-xs"
+                >
+                  {locationMode ? "Ocultar" : "Enviar ubicación"}
+                </button>
+              </div>
+              {locationMode && (
+                <div className="mt-3 grid gap-2 md:grid-cols-2">
+                  <input
+                    value={location.latitude}
+                    onChange={(event) => setLocation({ ...location, latitude: event.target.value })}
+                    placeholder="Latitud"
+                    className="rounded bg-slate-800 px-3 py-2 text-xs"
+                  />
+                  <input
+                    value={location.longitude}
+                    onChange={(event) => setLocation({ ...location, longitude: event.target.value })}
+                    placeholder="Longitud"
+                    className="rounded bg-slate-800 px-3 py-2 text-xs"
+                  />
+                  <input
+                    value={location.name}
+                    onChange={(event) => setLocation({ ...location, name: event.target.value })}
+                    placeholder="Nombre (opcional)"
+                    className="rounded bg-slate-800 px-3 py-2 text-xs md:col-span-2"
+                  />
+                  <input
+                    value={location.address}
+                    onChange={(event) => setLocation({ ...location, address: event.target.value })}
+                    placeholder="Dirección (opcional)"
+                    className="rounded bg-slate-800 px-3 py-2 text-xs md:col-span-2"
+                  />
+                  <button
+                    onClick={handleSendLocation}
+                    disabled={sending || !canSend}
+                    className="rounded bg-emerald-500 px-3 py-2 text-xs text-slate-950 disabled:opacity-60"
+                  >
+                    Enviar ubicación
+                  </button>
+                </div>
+              )}
             </div>
             {sendStatus && <p className="mt-2 text-xs text-slate-400">{sendStatus}</p>}
             {!canSend && (

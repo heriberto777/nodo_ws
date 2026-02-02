@@ -5,8 +5,8 @@ CREATE TABLE IF NOT EXISTS lines (
   n8n_webhook_url TEXT,
   webhook_enabled BOOLEAN NOT NULL DEFAULT FALSE,
   webhook_base64 BOOLEAN NOT NULL DEFAULT FALSE,
-  ignore_groups BOOLEAN NOT NULL DEFAULT FALSE,
-  read_messages BOOLEAN NOT NULL DEFAULT FALSE,
+  ignore_groups BOOLEAN NOT NULL DEFAULT TRUE,
+  read_messages BOOLEAN NOT NULL DEFAULT TRUE,
   rate_limit_minute INTEGER,
   rate_limit_hour INTEGER,
   rate_limit_day INTEGER,
@@ -137,6 +137,8 @@ ALTER TABLE lines ADD COLUMN IF NOT EXISTS webhook_enabled BOOLEAN;
 ALTER TABLE lines ADD COLUMN IF NOT EXISTS webhook_base64 BOOLEAN;
 ALTER TABLE lines ADD COLUMN IF NOT EXISTS ignore_groups BOOLEAN;
 ALTER TABLE lines ADD COLUMN IF NOT EXISTS read_messages BOOLEAN;
+ALTER TABLE lines ALTER COLUMN ignore_groups SET DEFAULT TRUE;
+ALTER TABLE lines ALTER COLUMN read_messages SET DEFAULT TRUE;
 ALTER TABLE settings ADD COLUMN IF NOT EXISTS alert_webhook_url TEXT;
 ALTER TABLE settings ADD COLUMN IF NOT EXISTS alert_webhook_enabled BOOLEAN;
 ALTER TABLE settings ADD COLUMN IF NOT EXISTS alert_min_severity TEXT;

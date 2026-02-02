@@ -48,7 +48,15 @@ const create = async (req, res) => {
   const { error } = lineSchema.validate(req.body);
   if (error) throw createError(400, "Invalid payload");
 
-  const line = await createLine(req.body);
+  const payload = {
+    ...req.body,
+    webhookEnabled: req.body.webhookEnabled ?? Boolean(req.body.n8nWebhookUrl),
+    webhookBase64: req.body.webhookBase64 ?? false,
+    ignoreGroups: req.body.ignoreGroups ?? true,
+    readMessages: req.body.readMessages ?? true
+  };
+
+  const line = await createLine(payload);
   res.status(201).json(line);
 };
 

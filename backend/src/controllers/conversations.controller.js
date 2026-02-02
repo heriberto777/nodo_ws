@@ -20,7 +20,23 @@ const statusSchema = Joi.object({
 });
 
 const replySchema = Joi.object({
-  message: Joi.string().min(1).required()
+  type: Joi.string().valid("text", "location").default("text"),
+  message: Joi.string().allow("", null),
+  location: Joi.object({
+    latitude: Joi.number().required(),
+    longitude: Joi.number().required(),
+    name: Joi.string().allow("", null),
+    address: Joi.string().allow("", null),
+    url: Joi.string().allow("", null)
+  }).optional()
+}).custom((value, helpers) => {
+  if (value.type === "text" && !value.message) {
+    return helpers.error("any.invalid");
+  }
+  if (value.type === "location" && !value.location) {
+    return helpers.error("any.invalid");
+  }
+  return value;
 });
 
 const list = async (req, res) => {
@@ -70,16 +86,22 @@ const reply = async (req, res) => {
   await sendMessageWithDelay({
     lineId: conversation.line_id,
     to: conversation.contact,
-    message: req.body.message
+    message: req.body.message,
+    type: req.body.type,
+    location: req.body.location
   });
 
+  const bodyText =
+    req.body.type === "location"
+      ? `📍 ${req.body.location?.name || "Ubicación"} (${req.body.location?.latitude}, ${req.body.location?.longitude})`
+      : req.body.message;
   const record = await createMessage({
     lineId: conversation.line_id,
     conversationId: conversation.id,
     direction: "OUT",
     to: conversation.contact,
     from: conversation.line_id,
-    body: req.body.message
+    body: bodyText
   });
 
   res.status(201).json({ ok: true, message: record });

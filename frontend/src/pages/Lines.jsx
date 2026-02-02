@@ -6,7 +6,15 @@ import Modal from "../components/Modal.jsx";
 
 export default function Lines({ statusList, qrState, user }) {
   const [lines, setLines] = useState([]);
-  const [form, setForm] = useState({ name: "", phone: "", n8nWebhookUrl: "" });
+  const [form, setForm] = useState({
+    name: "",
+    phone: "",
+    n8nWebhookUrl: "",
+    webhookEnabled: false,
+    webhookBase64: false,
+    ignoreGroups: true,
+    readMessages: true
+  });
   const [selectedLineId, setSelectedLineId] = useState(null);
   const [lineSettings, setLineSettings] = useState(null);
   const [settingsStatus, setSettingsStatus] = useState(null);
@@ -51,7 +59,15 @@ export default function Lines({ statusList, qrState, user }) {
     event.preventDefault();
     if (!form.name || !form.phone) return;
     await api.post("/lines", form);
-    setForm({ name: "", phone: "", n8nWebhookUrl: "" });
+    setForm({
+      name: "",
+      phone: "",
+      n8nWebhookUrl: "",
+      webhookEnabled: false,
+      webhookBase64: false,
+      ignoreGroups: true,
+      readMessages: true
+    });
     loadLines();
   };
 
@@ -229,6 +245,52 @@ export default function Lines({ statusList, qrState, user }) {
               className="rounded bg-slate-800 px-3 py-2 text-sm md:col-span-2"
               disabled={!canManageLines}
             />
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <label className="flex items-center gap-3 text-sm">
+              <input
+                type="checkbox"
+                checked={form.webhookEnabled}
+                onChange={(event) =>
+                  setForm({ ...form, webhookEnabled: event.target.checked })
+                }
+                disabled={!canManageLines}
+              />
+              Webhook habilitado
+            </label>
+            <label className="flex items-center gap-3 text-sm">
+              <input
+                type="checkbox"
+                checked={form.webhookBase64}
+                onChange={(event) =>
+                  setForm({ ...form, webhookBase64: event.target.checked })
+                }
+                disabled={!canManageLines}
+              />
+              Enviar media en base64
+            </label>
+            <label className="flex items-center gap-3 text-sm">
+              <input
+                type="checkbox"
+                checked={form.ignoreGroups}
+                onChange={(event) =>
+                  setForm({ ...form, ignoreGroups: event.target.checked })
+                }
+                disabled={!canManageLines}
+              />
+              Ignorar grupos
+            </label>
+            <label className="flex items-center gap-3 text-sm">
+              <input
+                type="checkbox"
+                checked={form.readMessages}
+                onChange={(event) =>
+                  setForm({ ...form, readMessages: event.target.checked })
+                }
+                disabled={!canManageLines}
+              />
+              Marcar mensajes como leídos
+            </label>
           </div>
           <button
             disabled={!canManageLines}
