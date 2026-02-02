@@ -110,13 +110,17 @@ class SessionManager extends EventEmitter {
       status: SESSION_STATUSES.CREATED,
       ready: false,
       initializing: false,
-      settings: null
+      settings: null,
+      lastError: null,
+      lastQrAt: null
     };
 
     this.sessions.set(lineId, session);
 
     client.on("qr", async (qr) => {
       session.status = SESSION_STATUSES.QR;
+      session.lastQrAt = new Date().toISOString();
+      session.lastError = null;
       this.lastQr.set(lineId, qr);
       await updateStatus(lineId, session.status);
       this.emitStatus(lineId, session.status);
@@ -146,6 +150,7 @@ class SessionManager extends EventEmitter {
     client.on("ready", async () => {
       session.status = SESSION_STATUSES.CONNECTED;
       session.ready = true;
+      session.lastError = null;
       this.lastQr.delete(lineId);
       await updateStatus(lineId, session.status);
       this.emitStatus(lineId, session.status);
@@ -156,15 +161,25 @@ class SessionManager extends EventEmitter {
 
     client.on("authenticated", async () => {
       session.status = SESSION_STATUSES.CONNECTED;
+      session.lastError = null;
       this.lastQr.delete(lineId);
       await updateStatus(lineId, session.status);
       this.emitStatus(lineId, session.status);
       this.resetCounter(this.qrCounters, lineId);
     });
 
+    client.on("auth_failure", async (message) => {
+      session.status = SESSION_STATUSES.DISCONNECTED;
+      session.ready = false;
+      session.lastError = message || "auth_failure";
+      await updateStatus(lineId, session.status);
+      this.emitStatus(lineId, session.status);
+    });
+
     client.on("disconnected", async (reason) => {
       session.status = reason === "BAN" ? SESSION_STATUSES.BLOCKED : SESSION_STATUSES.DISCONNECTED;
       session.ready = false;
+      session.lastError = reason || "disconnected";
       await updateStatus(lineId, session.status);
       this.emitStatus(lineId, session.status);
 
@@ -311,12 +326,14 @@ class SessionManager extends EventEmitter {
 
     try {
       session.initializing = true;
+      session.lastError = null;
       await session.client.initialize();
       await this.refreshSettings(lineId);
       session.initializing = false;
       return session;
     } catch (error) {
       session.initializing = false;
+      session.lastError = error?.message || "initialize_failed";
       logger.error("Failed to initialize session", { lineId, error: error.message });
       throw error;
     }
@@ -362,6 +379,19 @@ class SessionManager extends EventEmitter {
 
   getSession(lineId) {
     return this.sessions.get(lineId);
+  }
+
+  getSessionInfo(lineId) {
+    const session = this.sessions.get(lineId);
+    if (!session) return null;
+    return {
+      lineId: session.lineId,
+      status: session.status,
+      ready: session.ready,
+      initializing: session.initializing,
+      lastError: session.lastError,
+      lastQrAt: session.lastQrAt
+    };
   }
 
   getAllStatuses() {

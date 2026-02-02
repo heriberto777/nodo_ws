@@ -143,7 +143,8 @@ const getQr = async (req, res) => {
   const line = await getLineById(req.params.id);
   if (!line) throw createError(404, "Line not found");
   const qr = sessionManager.getLastQr(`${line.id}`);
-  res.json({ qr });
+  const info = sessionManager.getSessionInfo(`${line.id}`);
+  res.json({ qr, info });
 };
 
 const getSafeMode = async (req, res) => {

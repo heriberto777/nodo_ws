@@ -14,6 +14,7 @@ export default function Lines({ statusList, qrState, user }) {
   const [webhookValue, setWebhookValue] = useState("");
   const [rateValues, setRateValues] = useState({ perMinute: "", perHour: "", perDay: "" });
   const [qrPreview, setQrPreview] = useState(null);
+  const [qrInfo, setQrInfo] = useState(null);
   const canManageLines = user?.role === "admin";
   const canOperateLines = user?.role === "admin" || user?.role === "operator";
 
@@ -152,6 +153,7 @@ export default function Lines({ statusList, qrState, user }) {
   useEffect(() => {
     if (modal.type !== "qr" || !modal.line?.id) {
       setQrPreview(null);
+      setQrInfo(null);
       return undefined;
     }
 
@@ -159,8 +161,12 @@ export default function Lines({ statusList, qrState, user }) {
     const fetchQr = async () => {
       try {
         const response = await api.get(`/lines/${modal.line.id}/qr`);
-        if (active && response.data?.qr) {
+        if (!active) return;
+        if (response.data?.qr) {
           setQrPreview({ lineId: modal.line.id, qr: response.data.qr });
+        }
+        if (response.data?.info) {
+          setQrInfo(response.data.info);
         }
       } catch {
         // ignore
@@ -448,6 +454,11 @@ export default function Lines({ statusList, qrState, user }) {
         <div className="rounded bg-slate-800 px-3 py-2 text-xs text-slate-200">
           Estado: {statusLabel}
         </div>
+        {qrInfo?.lastError && (
+          <div className="rounded border border-rose-900/40 bg-rose-950/40 px-3 py-2 text-xs text-rose-200">
+            Error sesión: {qrInfo.lastError}
+          </div>
+        )}
         {qrMatchesLine ? (
           <QRCodePanel qrState={qrState} />
         ) : previewMatchesLine ? (
