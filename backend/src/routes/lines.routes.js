@@ -6,11 +6,16 @@ const linesController = require("../controllers/lines.controller");
 const router = Router();
 
 router.get("/", asyncHandler(linesController.list));
+router.use((req, res, next) => {
+	res.set("Cache-Control", "no-store");
+	next();
+});
 router.post("/", requireRole(["admin"]), asyncHandler(linesController.create));
 router.post("/:id/connect", requireRole(["admin", "operator"]), asyncHandler(linesController.connect));
 router.post("/:id/disconnect", requireRole(["admin", "operator"]), asyncHandler(linesController.disconnect));
 router.get("/:id/settings", requireRole(["admin", "operator"]), asyncHandler(linesController.getSettings));
 router.get("/:id/qr", requireRole(["admin", "operator"]), asyncHandler(linesController.getQr));
+router.post("/:id/qr/reset", requireRole(["admin", "operator"]), asyncHandler(linesController.resetQr));
 router.put("/:id/webhook", requireRole(["admin"]), asyncHandler(linesController.updateLineWebhook));
 router.put("/:id/ratelimit", requireRole(["admin"]), asyncHandler(linesController.updateLineRateLimit));
 router.put("/:id/settings", requireRole(["admin"]), asyncHandler(linesController.updateSettings));

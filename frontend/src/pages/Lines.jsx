@@ -454,6 +454,12 @@ export default function Lines({ statusList, qrState, user }) {
         <div className="rounded bg-slate-800 px-3 py-2 text-xs text-slate-200">
           Estado: {statusLabel}
         </div>
+        {qrInfo && (
+          <div className="rounded bg-slate-900/80 px-3 py-2 text-[11px] text-slate-400">
+            <div>Inicializando: {qrInfo.initializing ? "sí" : "no"}</div>
+            <div>Último QR: {qrInfo.lastQrAt || "-"}</div>
+          </div>
+        )}
         {qrInfo?.lastError && (
           <div className="rounded border border-rose-900/40 bg-rose-950/40 px-3 py-2 text-xs text-rose-200">
             Error sesión: {qrInfo.lastError}
@@ -468,6 +474,16 @@ export default function Lines({ statusList, qrState, user }) {
             QR no disponible para esta línea. Espera a que se genere luego de conectar.
           </div>
         )}
+        <button
+          onClick={async () => {
+            if (!modal.line?.id) return;
+            await api.post(`/lines/${modal.line.id}/qr/reset`);
+            await api.post(`/lines/${modal.line.id}/connect`);
+          }}
+          className="mt-2 rounded bg-amber-500 px-3 py-2 text-xs text-slate-950"
+        >
+          Regenerar QR
+        </button>
       </Modal>
     </div>
   );

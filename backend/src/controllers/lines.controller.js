@@ -147,6 +147,14 @@ const getQr = async (req, res) => {
   res.json({ qr, info });
 };
 
+const resetQr = async (req, res) => {
+  const line = await getLineById(req.params.id);
+  if (!line) throw createError(404, "Line not found");
+  const ok = await sessionManager.resetSession(`${line.id}`);
+  if (!ok) throw createError(409, "Session not initialized");
+  res.json({ ok: true });
+};
+
 const getSafeMode = async (req, res) => {
   const line = await getLineById(req.params.id);
   if (!line) throw createError(404, "Line not found");
@@ -172,5 +180,6 @@ module.exports = {
   remove,
   getSafeMode,
   resetSafeMode,
-  getQr
+  getQr,
+  resetQr
 };

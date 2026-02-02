@@ -363,6 +363,29 @@ class SessionManager extends EventEmitter {
     return true;
   }
 
+  async resetSession(lineId) {
+    const session = this.sessions.get(lineId);
+    if (!session) return null;
+    try {
+      await session.client.logout();
+    } catch (error) {
+      logger.error("Failed to logout session", { lineId, error: error.message });
+    }
+    try {
+      await session.client.destroy();
+    } catch (error) {
+      logger.error("Failed to destroy session", { lineId, error: error.message });
+    }
+    session.ready = false;
+    session.status = SESSION_STATUSES.DISCONNECTED;
+    session.lastError = null;
+    session.lastQrAt = null;
+    this.lastQr.delete(lineId);
+    await updateStatus(lineId, session.status);
+    this.emitStatus(lineId, session.status);
+    return true;
+  }
+
   async refreshSettings(lineId) {
     try {
       const settings = await getLineSettings(lineId);

@@ -11,6 +11,7 @@ const app = express();
 app.use(helmet());
 app.use(cors({ origin: env.corsOrigin }));
 app.use(express.json({ limit: "2mb" }));
+app.set("etag", false);
 
 app.use((req, res, next) => {
 	const start = Date.now();
