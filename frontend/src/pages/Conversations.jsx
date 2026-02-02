@@ -9,6 +9,7 @@ export default function Conversations() {
   const [messages, setMessages] = useState([]);
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
+  const [sendStatus, setSendStatus] = useState(null);
 
   const loadLines = async () => {
     const response = await api.get("/lines");
@@ -36,6 +37,8 @@ export default function Conversations() {
 
   useEffect(() => {
     loadLines();
+    const intervalId = setInterval(loadLines, 8000);
+    return () => clearInterval(intervalId);
   }, []);
 
   useEffect(() => {
@@ -49,6 +52,7 @@ export default function Conversations() {
     if (!selectedConversation) return;
     loadMessages(selectedConversation.id);
     setReplyText("");
+    setSendStatus(null);
   }, [selectedConversation]);
 
   const selectedMessages = useMemo(() => messages.slice().reverse(), [messages]);
@@ -63,13 +67,31 @@ export default function Conversations() {
   const handleSend = async () => {
     if (!selectedConversation || !replyText.trim()) return;
     setSending(true);
-    await api.post(`/conversations/${selectedConversation.id}/reply`, {
-      message: replyText.trim()
-    });
-    setReplyText("");
-    await loadMessages(selectedConversation.id);
-    setSending(false);
+    setSendStatus(null);
+    try {
+      await api.post(`/conversations/${selectedConversation.id}/reply`, {
+        message: replyText.trim()
+      });
+      setReplyText("");
+      await loadMessages(selectedConversation.id);
+      setSendStatus("Mensaje enviado.");
+    } catch (error) {
+      if (error?.response?.status === 409) {
+        setSendStatus("La línea no está conectada.");
+      } else if (error?.response?.status === 423) {
+        setSendStatus("Safe mode activo. No se pueden enviar mensajes.");
+      } else if (error?.response?.status === 429) {
+        setSendStatus("Límite superado (warm-up o rate limit).");
+      } else {
+        setSendStatus("Error al enviar el mensaje.");
+      }
+    } finally {
+      setSending(false);
+    }
   };
+
+  const selectedLine = lines.find((line) => `${line.id}` === `${selectedLineId}`);
+  const canSend = selectedLine?.status === "CONNECTED";
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">
@@ -144,13 +166,29 @@ export default function Conversations() {
               </button>
             </div>
 
-            <div className="mt-4 max-h-[420px] space-y-2 overflow-auto rounded bg-slate-950 p-3">
-              {selectedMessages.map((item) => (
-                <div key={item.id} className="rounded bg-slate-900 px-3 py-2 text-sm">
-                  <div className="text-xs text-slate-400">{item.direction}</div>
-                  <div>{item.body}</div>
-                </div>
-              ))}
+            <div className="mt-4 max-h-[420px] space-y-3 overflow-auto rounded bg-slate-950 p-4">
+              {selectedMessages.map((item) => {
+                const isOutbound = item.direction === "OUT";
+                return (
+                  <div
+                    key={item.id}
+                    className={`flex ${isOutbound ? "justify-end" : "justify-start"}`}
+                  >
+                    <div
+                      className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm shadow-sm ${
+                        isOutbound
+                          ? "bg-emerald-500/20 text-emerald-100 border border-emerald-500/40"
+                          : "bg-slate-900 text-slate-100 border border-slate-800"
+                      }`}
+                    >
+                      <div className="whitespace-pre-wrap leading-relaxed">{item.body}</div>
+                      <div className="mt-1 text-[10px] text-slate-400">
+                        {new Date(item.created_at).toLocaleTimeString()}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
               {!selectedMessages.length && (
                 <p className="text-xs text-slate-400">Sin mensajes.</p>
               )}
@@ -165,12 +203,18 @@ export default function Conversations() {
               />
               <button
                 onClick={handleSend}
-                disabled={sending}
+                disabled={sending || !canSend}
                 className="rounded bg-emerald-500 px-4 py-2 text-sm text-slate-950 disabled:opacity-60"
               >
                 Enviar
               </button>
             </div>
+            {sendStatus && <p className="mt-2 text-xs text-slate-400">{sendStatus}</p>}
+            {!canSend && (
+              <p className="mt-1 text-xs text-amber-300">
+                La línea debe estar conectada para enviar mensajes.
+              </p>
+            )}
           </>
         )}
       </div>
