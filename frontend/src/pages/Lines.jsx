@@ -13,14 +13,14 @@ export default function Lines({ statusList, qrState, user }) {
     webhookEnabled: false,
     webhookBase64: false,
     ignoreGroups: true,
-      if (modal.type !== "qr" && modal.type !== "diagnostic") return;
+    readMessages: true
   });
   const [selectedLineId, setSelectedLineId] = useState(null);
   const [lineSettings, setLineSettings] = useState(null);
   const [settingsStatus, setSettingsStatus] = useState(null);
   const [modal, setModal] = useState({ type: null, line: null });
   const [webhookValue, setWebhookValue] = useState("");
-      if ((modal.type !== "qr" && modal.type !== "diagnostic") || !modal.line?.id) {
+  const [rateValues, setRateValues] = useState({ perMinute: "", perHour: "", perDay: "" });
   const [qrPreview, setQrPreview] = useState(null);
   const [qrInfo, setQrInfo] = useState(null);
   const [activeSessions, setActiveSessions] = useState([]);
@@ -32,21 +32,13 @@ export default function Lines({ statusList, qrState, user }) {
     setLines(response.data);
   };
 
-    const handleDiagnose = async (lineId) => {
-      const current = mergedLines.find((line) => `${line.id}` === `${lineId}`) || { id: lineId };
-      setModal({ type: "diagnostic", line: current });
-    };
   useEffect(() => {
     loadLines();
-      (modal.type === "qr" || modal.type === "diagnostic") &&
-      qrState?.lineId &&
-      `${qrState.lineId}` === `${modal.line?.id}`;
+    const intervalId = setInterval(() => {
       loadLines();
-      (modal.type === "qr" || modal.type === "diagnostic") &&
-      qrPreview?.lineId &&
-      `${qrPreview.lineId}` === `${modal.line?.id}`;
+    }, 5000);
 
-      modal.type === "qr" || modal.type === "diagnostic"
+    return () => clearInterval(intervalId);
   }, []);
 
   useEffect(() => {
@@ -57,7 +49,6 @@ export default function Lines({ statusList, qrState, user }) {
       } catch {
         setActiveSessions([]);
       }
-              onDiagnose={handleDiagnose}
     };
     loadSessions();
     const intervalId = setInterval(loadSessions, 10000);
@@ -65,27 +56,22 @@ export default function Lines({ statusList, qrState, user }) {
   }, []);
 
   const handleSubmit = async (event) => {
-          open={modal.type === "qr" || modal.type === "diagnostic"}
-          title={
-            modal.type === "diagnostic"
-              ? `Diagnóstico de línea ${modal.line?.name || modal.line?.id || ""}`
-              : `QR de línea ${modal.line?.name || modal.line?.id || ""}`
-          }
+    event.preventDefault();
+    if (!form.name || !form.phone) return;
     await api.post("/lines", form);
     setForm({
       name: "",
       phone: "",
       n8nWebhookUrl: "",
-          {modal.type !== "diagnostic" &&
-            (qrMatchesLine ? (
-              <QRCodePanel qrState={qrState} />
-            ) : previewMatchesLine ? (
-              <QRCodePanel qrState={qrPreview} />
-            ) : (
-              <div className="rounded border border-dashed border-slate-700 p-6 text-slate-400">
-                QR no disponible para esta línea. Espera a que se genere luego de conectar.
-              </div>
-            ))}
+      webhookEnabled: false,
+      webhookBase64: false,
+      ignoreGroups: true,
+      readMessages: true
+    });
+    loadLines();
+  };
+
+  const handleConnect = async (lineId) => {
     try {
       await api.post(`/lines/${lineId}/connect`);
       loadLines();
@@ -274,9 +260,7 @@ export default function Lines({ statusList, qrState, user }) {
               <input
                 type="checkbox"
                 checked={form.webhookEnabled}
-                onChange={(event) =>
-                  setForm({ ...form, webhookEnabled: event.target.checked })
-                }
+                onChange={(event) => setForm({ ...form, webhookEnabled: event.target.checked })}
                 disabled={!canManageLines}
               />
               Webhook habilitado
@@ -285,9 +269,7 @@ export default function Lines({ statusList, qrState, user }) {
               <input
                 type="checkbox"
                 checked={form.webhookBase64}
-                onChange={(event) =>
-                  setForm({ ...form, webhookBase64: event.target.checked })
-                }
+                onChange={(event) => setForm({ ...form, webhookBase64: event.target.checked })}
                 disabled={!canManageLines}
               />
               Enviar media en base64
@@ -296,9 +278,7 @@ export default function Lines({ statusList, qrState, user }) {
               <input
                 type="checkbox"
                 checked={form.ignoreGroups}
-                onChange={(event) =>
-                  setForm({ ...form, ignoreGroups: event.target.checked })
-                }
+                onChange={(event) => setForm({ ...form, ignoreGroups: event.target.checked })}
                 disabled={!canManageLines}
               />
               Ignorar grupos
@@ -307,9 +287,7 @@ export default function Lines({ statusList, qrState, user }) {
               <input
                 type="checkbox"
                 checked={form.readMessages}
-                onChange={(event) =>
-                  setForm({ ...form, readMessages: event.target.checked })
-                }
+                onChange={(event) => setForm({ ...form, readMessages: event.target.checked })}
                 disabled={!canManageLines}
               />
               Marcar mensajes como leídos
@@ -337,6 +315,7 @@ export default function Lines({ statusList, qrState, user }) {
             onUpdateWebhook={handleUpdateWebhook}
             onUpdateRateLimit={handleUpdateRateLimit}
             onSelect={handleSelectLine}
+            onDiagnose={handleDiagnose}
             onShowQr={handleShowQr}
             onResetSafeMode={canManageLines ? handleResetSafeMode : null}
             onDelete={canManageLines ? handleDeleteLine : null}
