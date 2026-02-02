@@ -143,7 +143,7 @@ const getQr = async (req, res) => {
   const line = await getLineById(req.params.id);
   if (!line) throw createError(404, "Line not found");
   const infoBefore = sessionManager.getSessionInfo(`${line.id}`);
-  if (!infoBefore || (!infoBefore.initializing && !infoBefore.ready)) {
+  if (!infoBefore || (!infoBefore.initializing && !infoBefore.ready && !infoBefore.lastError)) {
     try {
       await sessionManager.connect(`${line.id}`);
     } catch (error) {
@@ -165,6 +165,17 @@ const resetQr = async (req, res) => {
     await sessionManager.connect(`${line.id}`);
   }
   res.json({ ok: true });
+};
+
+const listActiveSessions = async (_req, res) => {
+  res.json(sessionManager.listActiveSessions());
+};
+
+const cleanupSession = async (req, res) => {
+  const line = await getLineById(req.params.id);
+  if (!line) throw createError(404, "Line not found");
+  const ok = await sessionManager.cleanupSession(`${line.id}`);
+  res.json({ ok });
 };
 
 const getSafeMode = async (req, res) => {
@@ -193,5 +204,7 @@ module.exports = {
   getSafeMode,
   resetSafeMode,
   getQr,
-  resetQr
+  resetQr,
+  listActiveSessions,
+  cleanupSession
 };

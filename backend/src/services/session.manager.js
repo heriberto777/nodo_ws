@@ -113,7 +113,8 @@ class SessionManager extends EventEmitter {
       settings: null,
       lastError: null,
       lastQrAt: null,
-      lastConnectAt: null
+      lastConnectAt: null,
+      lastInitAttemptAt: null
     };
 
     this.sessions.set(lineId, session);
@@ -325,9 +326,18 @@ class SessionManager extends EventEmitter {
       return session;
     }
 
+    const cooldownMs = 15000;
+    if (session.lastInitAttemptAt) {
+      const delta = Date.now() - new Date(session.lastInitAttemptAt).getTime();
+      if (delta < cooldownMs) {
+        return session;
+      }
+    }
+
     try {
       session.initializing = true;
       session.lastConnectAt = new Date().toISOString();
+      session.lastInitAttemptAt = session.lastConnectAt;
       session.lastError = null;
       await session.client.initialize();
       await this.refreshSettings(lineId);
@@ -336,6 +346,7 @@ class SessionManager extends EventEmitter {
     } catch (error) {
       session.initializing = false;
       session.lastError = error?.message || "initialize_failed";
+      session.lastInitAttemptAt = new Date().toISOString();
       logger.error("Failed to initialize session", { lineId, error: error.message });
       throw error;
     }
@@ -383,6 +394,7 @@ class SessionManager extends EventEmitter {
     session.lastError = null;
     session.lastQrAt = null;
     session.lastConnectAt = null;
+    session.lastInitAttemptAt = null;
     this.lastQr.delete(lineId);
     await updateStatus(lineId, session.status);
     this.emitStatus(lineId, session.status);
@@ -392,6 +404,25 @@ class SessionManager extends EventEmitter {
   async resetAndConnect(lineId) {
     await this.resetSession(lineId);
     return this.connect(lineId);
+  }
+
+  async cleanupSession(lineId) {
+    const path = require("path");
+    const fs = require("fs/promises");
+    try {
+      await this.resetSession(lineId);
+    } catch (error) {
+      logger.warn("Failed to reset session during cleanup", { lineId, error: error.message });
+    }
+
+    const sessionDir = path.join(process.cwd(), ".wwebjs_auth", `session-${lineId}`);
+    try {
+      await fs.rm(sessionDir, { recursive: true, force: true });
+      return true;
+    } catch (error) {
+      logger.error("Failed to cleanup session directory", { lineId, error: error.message });
+      return false;
+    }
   }
 
   async refreshSettings(lineId) {
@@ -423,6 +454,18 @@ class SessionManager extends EventEmitter {
       lastError: session.lastError,
       lastQrAt: session.lastQrAt
     };
+  }
+
+  listActiveSessions() {
+    return Array.from(this.sessions.values()).map((session) => ({
+      lineId: session.lineId,
+      status: session.status,
+      ready: session.ready,
+      initializing: session.initializing,
+      lastError: session.lastError,
+      lastQrAt: session.lastQrAt,
+      lastConnectAt: session.lastConnectAt
+    }));
   }
 
   getAllStatuses() {

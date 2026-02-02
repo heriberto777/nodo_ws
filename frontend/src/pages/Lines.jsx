@@ -15,6 +15,7 @@ export default function Lines({ statusList, qrState, user }) {
   const [rateValues, setRateValues] = useState({ perMinute: "", perHour: "", perDay: "" });
   const [qrPreview, setQrPreview] = useState(null);
   const [qrInfo, setQrInfo] = useState(null);
+  const [activeSessions, setActiveSessions] = useState([]);
   const canManageLines = user?.role === "admin";
   const canOperateLines = user?.role === "admin" || user?.role === "operator";
 
@@ -29,6 +30,20 @@ export default function Lines({ statusList, qrState, user }) {
       loadLines();
     }, 5000);
 
+    return () => clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    const loadSessions = async () => {
+      try {
+        const response = await api.get("/lines/active-sessions");
+        setActiveSessions(response.data || []);
+      } catch {
+        setActiveSessions([]);
+      }
+    };
+    loadSessions();
+    const intervalId = setInterval(loadSessions, 10000);
     return () => clearInterval(intervalId);
   }, []);
 
@@ -242,6 +257,19 @@ export default function Lines({ statusList, qrState, user }) {
             onDelete={canManageLines ? handleDeleteLine : null}
             disabled={!canOperateLines}
           />
+        </div>
+      </div>
+
+      <div className="rounded border border-slate-800 bg-slate-900 p-4">
+        <h3 className="text-sm font-semibold">Sesiones activas</h3>
+        <div className="mt-2 space-y-2 text-xs text-slate-400">
+          {activeSessions.map((session) => (
+            <div key={session.lineId} className="flex items-center justify-between">
+              <span>Línea {session.lineId}</span>
+              <span>{session.status}</span>
+            </div>
+          ))}
+          {!activeSessions.length && <p>No hay sesiones activas.</p>}
         </div>
       </div>
 
@@ -465,6 +493,11 @@ export default function Lines({ statusList, qrState, user }) {
             Error sesión: {qrInfo.lastError}
           </div>
         )}
+        {qrInfo?.lastError?.includes("browser is already running") && (
+          <div className="rounded border border-amber-900/40 bg-amber-950/40 px-3 py-2 text-xs text-amber-200">
+            Ya existe un navegador usando esa sesión. Detén ese proceso y luego pulsa “Regenerar QR”.
+          </div>
+        )}
         {qrMatchesLine ? (
           <QRCodePanel qrState={qrState} />
         ) : previewMatchesLine ? (
@@ -483,6 +516,16 @@ export default function Lines({ statusList, qrState, user }) {
           className="mt-2 rounded bg-amber-500 px-3 py-2 text-xs text-slate-950"
         >
           Regenerar QR
+        </button>
+        <button
+          onClick={async () => {
+            if (!modal.line?.id) return;
+            await api.post(`/lines/${modal.line.id}/qr/cleanup`);
+            await api.post(`/lines/${modal.line.id}/connect`);
+          }}
+          className="mt-2 rounded bg-rose-500 px-3 py-2 text-xs text-white"
+        >
+          Limpiar sesión bloqueada
         </button>
       </Modal>
     </div>
