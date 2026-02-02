@@ -42,9 +42,13 @@ export default function Lines({ statusList, qrState, user }) {
     try {
       await api.post(`/lines/${lineId}/connect`);
       loadLines();
+      const current = mergedLines.find((line) => `${line.id}` === `${lineId}`) || { id: lineId };
+      setModal({ type: "qr", line: current });
     } catch (error) {
       if (error?.response?.status === 409) {
         loadLines();
+        const current = mergedLines.find((line) => `${line.id}` === `${lineId}`) || { id: lineId };
+        setModal({ type: "qr", line: current });
         return;
       }
       throw error;
@@ -108,14 +112,36 @@ export default function Lines({ statusList, qrState, user }) {
     setModal({ type: "delete", line: current });
   };
 
+  const handleShowQr = async (lineId) => {
+    const current = mergedLines.find((line) => `${line.id}` === `${lineId}`) || { id: lineId };
+    setModal({ type: "qr", line: current });
+  };
+
   const handleResetSafeMode = async (lineId) => {
     await api.post(`/lines/${lineId}/safe-mode/reset`);
     loadLines();
   };
 
+  const qrMatchesLine =
+    modal.type === "qr" && qrState?.lineId && `${qrState.lineId}` === `${modal.line?.id}`;
+  const modalLineStatus =
+    modal.type === "qr"
+      ? statusMap[modal.line?.id] || modal.line?.status || "CREATED"
+      : null;
+  const statusLabel =
+    modalLineStatus === "CONNECTED"
+      ? "Conectado"
+      : modalLineStatus === "QR"
+      ? "Generando QR"
+      : modalLineStatus === "DISCONNECTED"
+      ? "Desconectado"
+      : modalLineStatus === "BLOCKED"
+      ? "Bloqueado"
+      : "Conectando";
+
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
-      <div className="lg:col-span-2 space-y-6">
+    <div className="grid gap-6 lg:grid-cols-2">
+      <div className="space-y-6">
         <form onSubmit={handleSubmit} className="rounded border border-slate-800 bg-slate-900 p-4">
           <h2 className="text-lg font-semibold">Crear línea</h2>
           {!canManageLines && (
@@ -168,6 +194,7 @@ export default function Lines({ statusList, qrState, user }) {
             onUpdateWebhook={handleUpdateWebhook}
             onUpdateRateLimit={handleUpdateRateLimit}
             onSelect={handleSelectLine}
+            onShowQr={handleShowQr}
             onResetSafeMode={canManageLines ? handleResetSafeMode : null}
             onDelete={canManageLines ? handleDeleteLine : null}
             disabled={!canOperateLines}
@@ -302,8 +329,6 @@ export default function Lines({ statusList, qrState, user }) {
         </div>
       )}
 
-      <QRCodePanel qrState={qrState} />
-
       <Modal
         open={modal.type === "webhook"}
         title="Webhook por línea"
@@ -374,6 +399,25 @@ export default function Lines({ statusList, qrState, user }) {
         <p className="text-sm text-slate-300">
           ¿Eliminar la línea {modal.line?.name || modal.line?.id}?
         </p>
+      </Modal>
+
+      <Modal
+        open={modal.type === "qr"}
+        title={`QR de línea ${modal.line?.name || modal.line?.id || ""}`}
+        confirmLabel="Cerrar"
+        onClose={() => setModal({ type: null, line: null })}
+        onConfirm={() => setModal({ type: null, line: null })}
+      >
+        <div className="rounded bg-slate-800 px-3 py-2 text-xs text-slate-200">
+          Estado: {statusLabel}
+        </div>
+        {qrMatchesLine ? (
+          <QRCodePanel qrState={qrState} />
+        ) : (
+          <div className="rounded border border-dashed border-slate-700 p-6 text-slate-400">
+            QR no disponible para esta línea. Espera a que se genere luego de conectar.
+          </div>
+        )}
       </Modal>
     </div>
   );

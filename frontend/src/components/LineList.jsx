@@ -7,6 +7,7 @@ export default function LineList({
   onSelect,
   onDelete,
   onResetSafeMode,
+  onShowQr,
   disabled
 }) {
   if (!lines.length) {
@@ -67,6 +68,15 @@ export default function LineList({
             >
               Conectar
             </button>
+            {onShowQr && (
+              <button
+                onClick={() => onShowQr(line.id || line.lineId)}
+                disabled={disabled}
+                className="rounded bg-amber-500 px-3 py-2 text-xs text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                QR
+              </button>
+            )}
             <button
               onClick={() => onDisconnect(line.id || line.lineId)}
               disabled={disabled}

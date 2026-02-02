@@ -30,7 +30,9 @@ const baseTabs = [
 const wsUrl = import.meta.env.VITE_WS_URL || "http://localhost:4000";
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem("wa_active_tab") || "dashboard";
+  });
   const [statusList, setStatusList] = useState([]);
   const [qrState, setQrState] = useState(null);
   const [logs, setLogs] = useState([]);
@@ -187,6 +189,12 @@ export default function App() {
       setActiveTab(tabs[0].id);
     }
   }, [activeTab, tabs]);
+
+  useEffect(() => {
+    if (activeTab) {
+      localStorage.setItem("wa_active_tab", activeTab);
+    }
+  }, [activeTab]);
 
   const handleLogin = (payload) => {
     localStorage.setItem("wa_token", payload.token);
