@@ -112,7 +112,8 @@ class SessionManager extends EventEmitter {
       initializing: false,
       settings: null,
       lastError: null,
-      lastQrAt: null
+      lastQrAt: null,
+      lastConnectAt: null
     };
 
     this.sessions.set(lineId, session);
@@ -326,6 +327,7 @@ class SessionManager extends EventEmitter {
 
     try {
       session.initializing = true;
+      session.lastConnectAt = new Date().toISOString();
       session.lastError = null;
       await session.client.initialize();
       await this.refreshSettings(lineId);
@@ -380,10 +382,16 @@ class SessionManager extends EventEmitter {
     session.status = SESSION_STATUSES.DISCONNECTED;
     session.lastError = null;
     session.lastQrAt = null;
+    session.lastConnectAt = null;
     this.lastQr.delete(lineId);
     await updateStatus(lineId, session.status);
     this.emitStatus(lineId, session.status);
     return true;
+  }
+
+  async resetAndConnect(lineId) {
+    await this.resetSession(lineId);
+    return this.connect(lineId);
   }
 
   async refreshSettings(lineId) {

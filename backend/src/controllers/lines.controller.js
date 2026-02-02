@@ -142,6 +142,14 @@ const remove = async (req, res) => {
 const getQr = async (req, res) => {
   const line = await getLineById(req.params.id);
   if (!line) throw createError(404, "Line not found");
+  const infoBefore = sessionManager.getSessionInfo(`${line.id}`);
+  if (!infoBefore || (!infoBefore.initializing && !infoBefore.ready)) {
+    try {
+      await sessionManager.connect(`${line.id}`);
+    } catch (error) {
+      // ignore to allow returning diagnostics
+    }
+  }
   const qr = sessionManager.getLastQr(`${line.id}`);
   const info = sessionManager.getSessionInfo(`${line.id}`);
   res.json({ qr, info });
@@ -150,8 +158,12 @@ const getQr = async (req, res) => {
 const resetQr = async (req, res) => {
   const line = await getLineById(req.params.id);
   if (!line) throw createError(404, "Line not found");
-  const ok = await sessionManager.resetSession(`${line.id}`);
-  if (!ok) throw createError(409, "Session not initialized");
+  const session = sessionManager.getSession(`${line.id}`);
+  if (session) {
+    await sessionManager.resetAndConnect(`${line.id}`);
+  } else {
+    await sessionManager.connect(`${line.id}`);
+  }
   res.json({ ok: true });
 };
 
