@@ -557,6 +557,26 @@ class SessionManager extends EventEmitter {
     };
   }
 
+  async checkSessionLock(lineId) {
+    lineId = String(lineId);
+    const path = require("path");
+    const fs = require("fs/promises");
+    const sessionDir = path.join(process.cwd(), ".wwebjs_auth", `session-${lineId}`);
+    const lockFiles = ["SingletonLock", "SingletonSocket", "SingletonCookie"];
+    const found = [];
+
+    for (const file of lockFiles) {
+      try {
+        await fs.access(path.join(sessionDir, file));
+        found.push(file);
+      } catch {
+        // ignore missing file
+      }
+    }
+
+    return { locked: found.length > 0, files: found };
+  }
+
   listActiveSessions() {
     return Array.from(this.sessions.values()).map((session) => ({
       lineId: session.lineId,

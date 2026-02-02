@@ -159,8 +159,9 @@ const getQr = async (req, res) => {
     }
   }
   const qr = sessionManager.getLastQr(`${line.id}`);
-  const info = sessionManager.getSessionInfo(`${line.id}`);
-  res.json({ qr, info });
+  const info = sessionManager.getSessionInfo(`${line.id}`) || {};
+  const lock = await sessionManager.checkSessionLock(`${line.id}`);
+  res.json({ qr, info: { ...info, lock } });
 };
 
 const resetQr = async (req, res) => {

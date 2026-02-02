@@ -582,6 +582,11 @@ export default function Lines({ statusList, qrState, user }) {
             Error sesión: {qrInfo.lastError}
           </div>
         )}
+        {qrInfo?.lock?.locked && (
+          <div className="rounded border border-amber-900/40 bg-amber-950/40 px-3 py-2 text-xs text-amber-200">
+            Sesión bloqueada por navegador previo. Archivos: {qrInfo.lock.files?.join(", ") || "-"}
+          </div>
+        )}
         {qrInfo?.lastError?.includes("browser is already running") && (
           <div className="rounded border border-amber-900/40 bg-amber-950/40 px-3 py-2 text-xs text-amber-200">
             Ya existe un navegador usando esa sesión. Detén ese proceso y luego pulsa “Regenerar QR”.
