@@ -187,6 +187,13 @@ const cleanupSession = async (req, res) => {
   res.json({ ok });
 };
 
+const releaseLock = async (req, res) => {
+  const line = await getLineById(req.params.id);
+  if (!line) throw createError(404, "Line not found");
+  const ok = await sessionManager.releaseSessionLock(`${line.id}`);
+  res.json({ ok });
+};
+
 const getSafeMode = async (req, res) => {
   const line = await getLineById(req.params.id);
   if (!line) throw createError(404, "Line not found");
@@ -215,5 +222,6 @@ module.exports = {
   getQr,
   resetQr,
   listActiveSessions,
-  cleanupSession
+  cleanupSession,
+  releaseLock
 };

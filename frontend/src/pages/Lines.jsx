@@ -215,7 +215,7 @@ export default function Lines({ statusList, qrState, user }) {
     };
 
     fetchQr();
-    const intervalId = setInterval(fetchQr, 2000);
+    const intervalId = setInterval(fetchQr, 5000);
 
     return () => {
       active = false;
@@ -586,6 +586,18 @@ export default function Lines({ statusList, qrState, user }) {
           <div className="rounded border border-amber-900/40 bg-amber-950/40 px-3 py-2 text-xs text-amber-200">
             Sesión bloqueada por navegador previo. Archivos: {qrInfo.lock.files?.join(", ") || "-"}
           </div>
+        )}
+        {qrInfo?.lock?.locked && (
+          <button
+            onClick={async () => {
+              if (!modal.line?.id) return;
+              await api.post(`/lines/${modal.line.id}/lock/release`);
+              await api.post(`/lines/${modal.line.id}/connect`);
+            }}
+            className="mt-2 rounded bg-amber-500 px-3 py-2 text-xs text-slate-950"
+          >
+            Liberar lock y reconectar
+          </button>
         )}
         {qrInfo?.lastError?.includes("browser is already running") && (
           <div className="rounded border border-amber-900/40 bg-amber-950/40 px-3 py-2 text-xs text-amber-200">

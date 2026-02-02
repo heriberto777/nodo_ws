@@ -392,6 +392,13 @@ class SessionManager extends EventEmitter {
       return session;
     }
 
+    const lock = await this.checkSessionLock(lineId);
+    if (lock?.locked) {
+      session.lastError = `session_locked:${lock.files.join(",")}`;
+      logger.warn("Session lock detected", { lineId, files: lock.files });
+      return session;
+    }
+
     const cooldownMs = 15000;
     if (session.lastInitAttemptAt) {
       const delta = Date.now() - new Date(session.lastInitAttemptAt).getTime();
@@ -477,9 +484,13 @@ class SessionManager extends EventEmitter {
     const session = this.sessions.get(lineId);
     if (!session) return null;
     try {
-      await session.client.logout();
+      if (session.client?.pupPage) {
+        await session.client.logout();
+      }
     } catch (error) {
-      logger.error("Failed to logout session", { lineId, error: error.message });
+      if (!String(error?.message || "").includes("reading 'evaluate'")) {
+        logger.error("Failed to logout session", { lineId, error: error.message });
+      }
     }
     try {
       await session.client.destroy();
@@ -515,14 +526,69 @@ class SessionManager extends EventEmitter {
     }
 
     const sessionDir = path.join(process.cwd(), ".wwebjs_auth", `session-${lineId}`);
+    const lockFiles = ["SingletonLock", "SingletonSocket", "SingletonCookie", "lockfile"];
+    const tryRemove = async (attempt) => {
+      try {
+        await fs.rm(sessionDir, { recursive: true, force: true });
+        this.sessions.delete(lineId);
+        return true;
+      } catch (error) {
+        const message = String(error?.message || "");
+        if (message.includes("EBUSY") && attempt < 3) {
+          for (const file of lockFiles) {
+            try {
+              await fs.rm(path.join(sessionDir, file), { force: true });
+            } catch {
+              // ignore
+            }
+          }
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          return tryRemove(attempt + 1);
+        }
+        logger.error("Failed to cleanup session directory", { lineId, error: error.message });
+        return false;
+      }
+    };
+
+    return tryRemove(0);
+  }
+
+  async releaseSessionLock(lineId) {
+    lineId = String(lineId);
+    const session = this.sessions.get(lineId);
     try {
-      await fs.rm(sessionDir, { recursive: true, force: true });
-      this.sessions.delete(lineId);
-      return true;
+      if (session?.client?.pupBrowser) {
+        await session.client.pupBrowser.close();
+      }
     } catch (error) {
-      logger.error("Failed to cleanup session directory", { lineId, error: error.message });
-      return false;
+      logger.warn("Failed to close puppeteer browser", { lineId, error: error.message });
     }
+    try {
+      if (session?.client) {
+        await session.client.destroy();
+      }
+    } catch (error) {
+      logger.warn("Failed to destroy client during lock release", {
+        lineId,
+        error: error.message
+      });
+    }
+
+    const cleaned = await this.cleanupSession(lineId);
+    if (!cleaned) {
+      const path = require("path");
+      const fs = require("fs/promises");
+      const sessionDir = path.join(process.cwd(), ".wwebjs_auth", `session-${lineId}`);
+      const lockFiles = ["SingletonLock", "SingletonSocket", "SingletonCookie"];
+      for (const file of lockFiles) {
+        try {
+          await fs.rm(path.join(sessionDir, file), { force: true });
+        } catch {
+          // ignore
+        }
+      }
+    }
+    return true;
   }
 
   async refreshSettings(lineId) {

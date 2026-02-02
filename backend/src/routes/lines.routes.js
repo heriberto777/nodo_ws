@@ -18,6 +18,7 @@ router.get("/:id/settings", requireRole(["admin", "operator"]), asyncHandler(lin
 router.get("/:id/qr", requireRole(["admin", "operator"]), asyncHandler(linesController.getQr));
 router.post("/:id/qr/reset", requireRole(["admin", "operator"]), asyncHandler(linesController.resetQr));
 router.post("/:id/qr/cleanup", requireRole(["admin", "operator"]), asyncHandler(linesController.cleanupSession));
+router.post("/:id/lock/release", requireRole(["admin", "operator"]), asyncHandler(linesController.releaseLock));
 router.put("/:id/webhook", requireRole(["admin"]), asyncHandler(linesController.updateLineWebhook));
 router.put("/:id/ratelimit", requireRole(["admin"]), asyncHandler(linesController.updateLineRateLimit));
 router.put("/:id/settings", requireRole(["admin"]), asyncHandler(linesController.updateSettings));
