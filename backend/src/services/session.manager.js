@@ -44,7 +44,7 @@ class SessionManager extends EventEmitter {
     counterMap.delete(lineId);
   }
 
-  scheduleReconnect(lineId, reason) {
+  scheduleReconnect(lineId, reason, options = {}) {
     lineId = String(lineId);
     if (this.reconnectTimers.has(lineId)) return;
 
@@ -57,11 +57,15 @@ class SessionManager extends EventEmitter {
     const timer = setTimeout(async () => {
       this.reconnectTimers.delete(lineId);
       try {
-        await this.connect(lineId);
+        if (options.reset) {
+          await this.resetAndConnect(lineId);
+        } else {
+          await this.connect(lineId);
+        }
         logger.info("Reconnect attempt executed", { lineId, attempt, reason });
       } catch (error) {
         logger.warn("Reconnect attempt failed", { lineId, attempt, reason, error: error.message });
-        this.scheduleReconnect(lineId, "RETRY_FAILED");
+        this.scheduleReconnect(lineId, "RETRY_FAILED", options);
       }
     }, delayMs);
 
@@ -211,7 +215,7 @@ class SessionManager extends EventEmitter {
       session.lastError = message || "auth_failure";
       await updateStatus(lineId, session.status);
       this.emitStatus(lineId, session.status);
-      this.scheduleReconnect(lineId, "AUTH_FAILURE");
+      this.scheduleReconnect(lineId, "AUTH_FAILURE", { reset: true });
     });
 
     client.on("disconnected", async (reason) => {

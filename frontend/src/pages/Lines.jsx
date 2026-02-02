@@ -23,6 +23,7 @@ export default function Lines({ statusList, qrState, user }) {
   const [rateValues, setRateValues] = useState({ perMinute: "", perHour: "", perDay: "" });
   const [qrPreview, setQrPreview] = useState(null);
   const [qrInfo, setQrInfo] = useState(null);
+  const [qrNow, setQrNow] = useState(Date.now());
   const [activeSessions, setActiveSessions] = useState([]);
   const canManageLines = user?.role === "admin";
   const canOperateLines = user?.role === "admin" || user?.role === "operator";
@@ -222,6 +223,16 @@ export default function Lines({ statusList, qrState, user }) {
     };
   }, [modal.type, modal.line?.id]);
 
+  useEffect(() => {
+    if (modal.type !== "qr" && modal.type !== "diagnostic") return undefined;
+    const intervalId = setInterval(() => setQrNow(Date.now()), 1000);
+    return () => clearInterval(intervalId);
+  }, [modal.type]);
+
+  const lastQrAtMs = qrInfo?.lastQrAt ? new Date(qrInfo.lastQrAt).getTime() : null;
+  const qrExpiresInMs = lastQrAtMs ? Math.max(0, 60_000 - (qrNow - lastQrAtMs)) : null;
+  const qrExpiresInSec = qrExpiresInMs != null ? Math.ceil(qrExpiresInMs / 1000) : null;
+
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <div className="space-y-6">
@@ -330,7 +341,12 @@ export default function Lines({ statusList, qrState, user }) {
           {activeSessions.map((session) => (
             <div key={session.lineId} className="flex items-center justify-between">
               <span>Línea {session.lineId}</span>
-              <span>{session.status}</span>
+              <span className="text-right">
+                <span>{session.status}</span>
+                {session.initializing ? " · init" : ""}
+                {session.ready ? " · ready" : ""}
+                {session.lastError ? ` · ${session.lastError}` : ""}
+              </span>
             </div>
           ))}
           {!activeSessions.length && <p>No hay sesiones activas.</p>}
@@ -554,6 +570,11 @@ export default function Lines({ statusList, qrState, user }) {
           <div className="rounded bg-slate-900/80 px-3 py-2 text-[11px] text-slate-400">
             <div>Inicializando: {qrInfo.initializing ? "sí" : "no"}</div>
             <div>Último QR: {qrInfo.lastQrAt || "-"}</div>
+            {qrExpiresInSec != null && (
+              <div>
+                QR expira en: {qrExpiresInSec <= 0 ? "expirado" : `${qrExpiresInSec}s`}
+              </div>
+            )}
           </div>
         )}
         {qrInfo?.lastError && (
@@ -580,7 +601,13 @@ export default function Lines({ statusList, qrState, user }) {
           onClick={async () => {
             if (!modal.line?.id) return;
             await api.post(`/lines/${modal.line.id}/qr/reset`);
-            await api.post(`/lines/${modal.line.id}/connect`);
+            try {
+              await api.post(`/lines/${modal.line.id}/connect`);
+            } catch (error) {
+              if (error?.response?.status !== 409) {
+                throw error;
+              }
+            }
           }}
           className="mt-2 rounded bg-amber-500 px-3 py-2 text-xs text-slate-950"
         >
@@ -590,7 +617,13 @@ export default function Lines({ statusList, qrState, user }) {
           onClick={async () => {
             if (!modal.line?.id) return;
             await api.post(`/lines/${modal.line.id}/qr/cleanup`);
-            await api.post(`/lines/${modal.line.id}/connect`);
+            try {
+              await api.post(`/lines/${modal.line.id}/connect`);
+            } catch (error) {
+              if (error?.response?.status !== 409) {
+                throw error;
+              }
+            }
           }}
           className="mt-2 rounded bg-rose-500 px-3 py-2 text-xs text-white"
         >
