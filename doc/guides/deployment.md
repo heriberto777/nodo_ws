@@ -30,6 +30,8 @@ Crear backend/.env con valores reales y secretos fuera del repositorio:
 4) Verificar que el backend responde en /api/health y que el frontend carga.
 5) Configurar Nginx como reverse proxy con SSL y redirigir HTTP→HTTPS.
 
+**Frontend runtime config:** editar public/config.json en el servidor con apiUrl y wsUrl. Si está vacío en producción, aparecerá una pantalla de configuración inicial.
+
 **Persistencia:** Asegurar volúmenes para Postgres, Redis y .wwebjs_auth/.wwebjs_cache (sesiones WhatsApp).
 
 ## Opción B: PM2 + Nginx
