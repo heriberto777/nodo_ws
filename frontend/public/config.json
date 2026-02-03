@@ -1,4 +1,4 @@
 {
-  "apiUrl": "http://localhost:3989",
-  "wsUrl": "http://localhost:3989"
+  "apiUrl": "https://catelli.ddns.net:8095",
+  "wsUrl": "https://catelli.ddns.net:8095"
 }
