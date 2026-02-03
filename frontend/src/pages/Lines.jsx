@@ -3,6 +3,7 @@ import { api } from "../api/client.js";
 import LineList from "../components/LineList.jsx";
 import QRCodePanel from "../components/QRCodePanel.jsx";
 import Modal from "../components/Modal.jsx";
+import DashboardHeader from "../components/DashboardHeader.jsx";
 
 export default function Lines({ statusList, qrState, user }) {
   const [lines, setLines] = useState([]);
@@ -25,6 +26,9 @@ export default function Lines({ statusList, qrState, user }) {
   const [qrInfo, setQrInfo] = useState(null);
   const [qrNow, setQrNow] = useState(Date.now());
   const [activeSessions, setActiveSessions] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [createLineModalOpen, setCreateLineModalOpen] = useState(false);
+  const [sessionsModalOpen, setSessionsModalOpen] = useState(false);
   const canManageLines = user?.role === "admin";
   const canOperateLines = user?.role === "admin" || user?.role === "operator";
 
@@ -234,124 +238,65 @@ export default function Lines({ statusList, qrState, user }) {
   const qrExpiresInSec = qrExpiresInMs != null ? Math.ceil(qrExpiresInMs / 1000) : null;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <div className="space-y-6">
-        <form onSubmit={handleSubmit} className="rounded border border-slate-800 bg-slate-900 p-4">
-          <h2 className="text-lg font-semibold">Crear línea</h2>
-          {!canManageLines && (
-            <p className="mt-2 text-xs text-slate-400">
-              Solo administradores pueden crear líneas.
-            </p>
-          )}
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <input
-              value={form.name}
-              onChange={(event) => setForm({ ...form, name: event.target.value })}
-              placeholder="Nombre"
-              className="rounded bg-slate-800 px-3 py-2 text-sm"
-              disabled={!canManageLines}
-            />
-            <input
-              value={form.phone}
-              onChange={(event) => setForm({ ...form, phone: event.target.value })}
-              placeholder="Número"
-              className="rounded bg-slate-800 px-3 py-2 text-sm"
-              disabled={!canManageLines}
-            />
-            <input
-              value={form.n8nWebhookUrl}
-              onChange={(event) => setForm({ ...form, n8nWebhookUrl: event.target.value })}
-              placeholder="Webhook n8n (opcional)"
-              className="rounded bg-slate-800 px-3 py-2 text-sm md:col-span-2"
-              disabled={!canManageLines}
-            />
-          </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <label className="flex items-center gap-3 text-sm">
-              <input
-                type="checkbox"
-                checked={form.webhookEnabled}
-                onChange={(event) => setForm({ ...form, webhookEnabled: event.target.checked })}
-                disabled={!canManageLines}
-              />
-              Webhook habilitado
-            </label>
-            <label className="flex items-center gap-3 text-sm">
-              <input
-                type="checkbox"
-                checked={form.webhookBase64}
-                onChange={(event) => setForm({ ...form, webhookBase64: event.target.checked })}
-                disabled={!canManageLines}
-              />
-              Enviar media en base64
-            </label>
-            <label className="flex items-center gap-3 text-sm">
-              <input
-                type="checkbox"
-                checked={form.ignoreGroups}
-                onChange={(event) => setForm({ ...form, ignoreGroups: event.target.checked })}
-                disabled={!canManageLines}
-              />
-              Ignorar grupos
-            </label>
-            <label className="flex items-center gap-3 text-sm">
-              <input
-                type="checkbox"
-                checked={form.readMessages}
-                onChange={(event) => setForm({ ...form, readMessages: event.target.checked })}
-                disabled={!canManageLines}
-              />
-              Marcar mensajes como leídos
-            </label>
-          </div>
+    <div className="space-y-6">
+      {/* Header con búsqueda */}
+      <DashboardHeader
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        linesCount={lines.length}
+        connectedCount={lines.filter((l) => statusMap[l.id]?.status === "CONNECTED").length}
+      />
+
+      {/* Botones de acción */}
+      <div className="flex flex-wrap gap-3">
+        {canManageLines && (
           <button
-            disabled={!canManageLines}
-            className="mt-4 rounded bg-emerald-500 px-4 py-2 text-sm text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={() => setCreateLineModalOpen(true)}
+            className="rounded bg-emerald-500 px-4 py-2 text-sm text-slate-950 font-semibold hover:bg-emerald-600 transition-colors"
           >
-            Guardar
+            + Crear línea
           </button>
-        </form>
-
-        <div className="space-y-2">
-          <h2 className="text-lg font-semibold">Líneas registradas</h2>
-          {!canOperateLines && (
-            <p className="text-xs text-slate-400">
-              Tu rol no permite conectar o desconectar líneas.
-            </p>
+        )}
+        <button
+          onClick={() => setSessionsModalOpen(true)}
+          className="rounded bg-slate-700 px-4 py-2 text-sm text-slate-100 font-semibold hover:bg-slate-600 transition-colors relative"
+        >
+          Sesiones activas
+          {activeSessions.length > 0 && (
+            <span className="absolute -top-2 -right-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-xs font-bold text-white">
+              {activeSessions.length}
+            </span>
           )}
-          <LineList
-            lines={mergedLines}
-            onConnect={handleConnect}
-            onDisconnect={handleDisconnect}
-            onUpdateWebhook={handleUpdateWebhook}
-            onUpdateRateLimit={handleUpdateRateLimit}
-            onSelect={handleSelectLine}
-            onDiagnose={handleDiagnose}
-            onShowQr={handleShowQr}
-            onResetSafeMode={canManageLines ? handleResetSafeMode : null}
-            onDelete={canManageLines ? handleDeleteLine : null}
-            disabled={!canOperateLines}
-          />
-        </div>
+        </button>
       </div>
 
-      <div className="rounded border border-slate-800 bg-slate-900 p-4">
-        <h3 className="text-sm font-semibold">Sesiones activas</h3>
-        <div className="mt-2 space-y-2 text-xs text-slate-400">
-          {activeSessions.map((session) => (
-            <div key={session.lineId} className="flex items-center justify-between">
-              <span>Línea {session.lineId}</span>
-              <span className="text-right">
-                <span>{session.status}</span>
-                {session.initializing ? " · init" : ""}
-                {session.ready ? " · ready" : ""}
-                {session.lastError ? ` · ${session.lastError}` : ""}
-              </span>
-            </div>
-          ))}
-          {!activeSessions.length && <p>No hay sesiones activas.</p>}
-        </div>
-      </div>
+      {!canOperateLines && (
+        <p className="rounded bg-slate-800/50 px-4 py-2 text-xs text-slate-400">
+          Tu rol no permite conectar o desconectar líneas.
+        </p>
+      )}
+
+      {/* LineList con búsqueda */}
+      <LineList
+        lines={mergedLines.filter((line) => {
+          const searchLower = searchTerm.toLowerCase();
+          return (
+            line.name?.toLowerCase().includes(searchLower) ||
+            line.phone?.toLowerCase().includes(searchLower) ||
+            line.lineId?.toLowerCase().includes(searchLower)
+          );
+        })}
+        onConnect={handleConnect}
+        onDisconnect={handleDisconnect}
+        onUpdateWebhook={handleUpdateWebhook}
+        onUpdateRateLimit={handleUpdateRateLimit}
+        onSelect={handleSelectLine}
+        onDiagnose={handleDiagnose}
+        onShowQr={handleShowQr}
+        onResetSafeMode={canManageLines ? handleResetSafeMode : null}
+        onDelete={canManageLines ? handleDeleteLine : null}
+        disabled={!canOperateLines}
+      />
 
       {selectedLineId && lineSettings && (
         <div className="rounded border border-slate-800 bg-slate-900 p-4">
@@ -646,6 +591,110 @@ export default function Lines({ statusList, qrState, user }) {
         >
           Limpiar sesión bloqueada
         </button>
+      </Modal>
+
+      {/* Modal: Crear línea */}
+      <Modal
+        open={createLineModalOpen}
+        title="Crear nueva línea"
+        confirmLabel="Guardar"
+        onClose={() => setCreateLineModalOpen(false)}
+        onConfirm={async (e) => {
+          if (!form.name || !form.phone) {
+            alert("Por favor completa nombre y número");
+            return;
+          }
+          try {
+            await handleSubmit({ preventDefault: () => {} });
+            setCreateLineModalOpen(false);
+          } catch (error) {
+            console.error("Error creating line:", error);
+          }
+        }}
+      >
+        <div className="space-y-3">
+          <input
+            value={form.name}
+            onChange={(event) => setForm({ ...form, name: event.target.value })}
+            placeholder="Nombre"
+            className="w-full rounded bg-slate-800 px-3 py-2 text-sm"
+          />
+          <input
+            value={form.phone}
+            onChange={(event) => setForm({ ...form, phone: event.target.value })}
+            placeholder="Número"
+            className="w-full rounded bg-slate-800 px-3 py-2 text-sm"
+          />
+          <input
+            value={form.n8nWebhookUrl}
+            onChange={(event) => setForm({ ...form, n8nWebhookUrl: event.target.value })}
+            placeholder="Webhook n8n (opcional)"
+            className="w-full rounded bg-slate-800 px-3 py-2 text-sm"
+          />
+          <label className="flex items-center gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={form.webhookEnabled}
+              onChange={(event) => setForm({ ...form, webhookEnabled: event.target.checked })}
+            />
+            Webhook habilitado
+          </label>
+          <label className="flex items-center gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={form.webhookBase64}
+              onChange={(event) => setForm({ ...form, webhookBase64: event.target.checked })}
+            />
+            Enviar media en base64
+          </label>
+          <label className="flex items-center gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={form.ignoreGroups}
+              onChange={(event) => setForm({ ...form, ignoreGroups: event.target.checked })}
+            />
+            Ignorar grupos
+          </label>
+          <label className="flex items-center gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={form.readMessages}
+              onChange={(event) => setForm({ ...form, readMessages: event.target.checked })}
+            />
+            Marcar mensajes como leídos
+          </label>
+        </div>
+      </Modal>
+
+      {/* Modal: Sesiones activas */}
+      <Modal
+        open={sessionsModalOpen}
+        title="Sesiones activas"
+        confirmLabel="Cerrar"
+        onClose={() => setSessionsModalOpen(false)}
+        onConfirm={() => setSessionsModalOpen(false)}
+      >
+        {activeSessions.length > 0 ? (
+          <div className="max-h-96 overflow-y-auto space-y-2">
+            {activeSessions.map((session) => (
+              <div key={session.lineId} className="rounded bg-slate-800/50 p-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold">Línea {session.lineId}</span>
+                  <span className={`text-xs font-bold ${session.status === 'ready' ? 'text-emerald-400' : 'text-amber-400'}`}>
+                    {session.status}
+                  </span>
+                </div>
+                <div className="mt-2 text-xs text-slate-400 space-y-1">
+                  {session.initializing && <p>• Inicializando...</p>}
+                  {session.ready && <p>• Listo para usar</p>}
+                  {session.lastError && <p className="text-rose-400">• Error: {session.lastError}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-center text-slate-400 py-4">No hay sesiones activas en este momento.</p>
+        )}
       </Modal>
     </div>
   );
