@@ -12,9 +12,20 @@ export default function LineList({
   onDelete,
   onResetSafeMode,
   onShowQr,
-  disabled
+  disabled,
+  searchTerm = ""
 }) {
   const [stats, setStats] = useState({});
+  
+  // Filter lines by search term
+  const filteredLines = lines.filter(line => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      (line.name?.toLowerCase().includes(searchLower)) ||
+      (line.phone?.toLowerCase().includes(searchLower)) ||
+      (line.lineId?.toLowerCase().includes(searchLower))
+    );
+  });
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -39,13 +50,19 @@ export default function LineList({
     }
   }, [lines]);
 
-  if (!lines.length) {
-    return <p className="text-slate-400">No hay líneas registradas.</p>;
+  if (!filteredLines.length) {
+    return (
+      <div className="rounded-lg border border-slate-700 bg-slate-800/30 py-8 text-center">
+        <p className="text-slate-400">
+          {lines.length === 0 ? "No hay líneas registradas." : "No se encontraron líneas que coincidan con tu búsqueda."}
+        </p>
+      </div>
+    );
   }
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {lines.map((line) => {
+      {filteredLines.map((line) => {
         const lineStats = stats[line.id || line.lineId] || { chats: 0, contacts: 0 };
         const isConnected = line.status === "CONNECTED";
 
@@ -109,6 +126,16 @@ export default function LineList({
 
             {/* Botones */}
             <div className="flex flex-wrap gap-2">
+              {isConnected && onShowQr && (
+                <button
+                  onClick={() => onShowQr(line.id || line.lineId)}
+                  disabled={disabled}
+                  className="flex-1 rounded bg-purple-500/20 px-2 py-2 text-xs font-medium text-purple-300 hover:bg-purple-500/30 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+                  title="Mostrar código QR"
+                >
+                  QR
+                </button>
+              )}
               {onSelect && (
                 <button
                   onClick={() => onSelect(line.id || line.lineId)}

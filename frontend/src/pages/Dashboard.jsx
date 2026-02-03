@@ -3,6 +3,11 @@ import { api } from "../api/client.js";
 import StatusCard from "../components/StatusCard.jsx";
 import QRCodePanel from "../components/QRCodePanel.jsx";
 import LogsPanel from "../components/LogsPanel.jsx";
+import DashboardHeader from "../components/DashboardHeader.jsx";
+import QRModal from "../components/QRModal.jsx";
+import RecentEventsModal from "../components/RecentEventsModal.jsx";
+import LineList from "../components/LineList.jsx";
+import Modal from "../components/Modal.jsx";
 
 export default function Dashboard({ statusList, qrState, logs, user, riskEvents }) {
   const [lineMap, setLineMap] = useState({});
@@ -12,6 +17,10 @@ export default function Dashboard({ statusList, qrState, logs, user, riskEvents 
   const [riskFilter, setRiskFilter] = useState("ALL");
   const [metrics, setMetrics] = useState(null);
   const [kpis, setKpis] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [recentEventsModalOpen, setRecentEventsModalOpen] = useState(false);
+  const [selectedLineForQr, setSelectedLineForQr] = useState(null);
 
   useEffect(() => {
     const loadLines = async () => {
@@ -155,7 +164,37 @@ export default function Dashboard({ statusList, qrState, logs, user, riskEvents 
           )}
         </div>
       </div>
-      <QRCodePanel qrState={qrState} />
+      <div className="lg:col-span-3">
+        <DashboardHeader
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          linesCount={lines.length}
+          connectedCount={metrics?.connectedLines || 0}
+        />
+        <div className="mt-6">
+          <LineList
+            lines={lines}
+            searchTerm={searchTerm}
+            onConnect={() => {}}
+            onDisconnect={() => {}}
+            onUpdateWebhook={() => {}}
+            onUpdateRateLimit={() => {}}
+            onSelect={() => {}}
+            onDiagnose={() => {}}
+            onDelete={() => {}}
+            onResetSafeMode={() => {}}
+            disabled={false}
+            onShowQr={(lineId) => {
+              const line = lines.find((l) => l.id === lineId);
+              setSelectedLineForQr(line);
+              setQrModalOpen(true);
+            }}
+            onShowRecentEvents={() => {
+              setRecentEventsModalOpen(true);
+            }}
+          />
+        </div>
+      </div>
       <div className="lg:col-span-3">
         <LogsPanel
           logs={[...logs, ...recentLogs].slice(0, 50)}
@@ -176,6 +215,27 @@ export default function Dashboard({ statusList, qrState, logs, user, riskEvents 
           }
         />
       </div>
+
+      {/* QR Code Modal */}
+      <QRModal
+        open={qrModalOpen}
+        onClose={() => {
+          setQrModalOpen(false);
+          setSelectedLineForQr(null);
+        }}
+        lineData={selectedLineForQr}
+        qrDataUrl={
+          selectedLineForQr ? qrState[selectedLineForQr.id]?.qr : null
+        }
+      />
+
+      {/* Recent Events Modal */}
+      <RecentEventsModal
+        open={recentEventsModalOpen}
+        onClose={() => setRecentEventsModalOpen(false)}
+        events={recentLogs}
+        lineMap={lineMap}
+      />
     </div>
   );
 }
