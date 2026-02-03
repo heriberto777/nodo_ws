@@ -13,7 +13,7 @@ import Metrics from "./pages/Metrics.jsx";
 import ToastStack from "./components/ToastStack.jsx";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
-import { setRuntimeConfig } from "./config/runtime.js";
+import { saveRuntimeConfigToServer, setRuntimeConfig } from "./config/runtime.js";
 
 const baseTabs = [
   { id: "dashboard", label: "Dashboard" },
@@ -34,6 +34,7 @@ export default function App({ runtimeConfig, needsSetup = false }) {
   const [showSetup, setShowSetup] = useState(Boolean(needsSetup));
   const [setupApiUrl, setSetupApiUrl] = useState(config.apiUrl || "");
   const [setupWsUrl, setSetupWsUrl] = useState(config.wsUrl || "");
+  const [setupToken, setSetupToken] = useState("");
   const [setupError, setSetupError] = useState("");
 
   const safeParseJson = (value) => {
@@ -162,9 +163,18 @@ export default function App({ runtimeConfig, needsSetup = false }) {
         setSetupError("Debes completar API URL y WS URL.");
         return;
       }
-      setRuntimeConfig({ apiUrl: cleanApi, wsUrl: cleanWs });
-      setShowSetup(false);
-      window.location.reload();
+      setSetupError("");
+      saveRuntimeConfigToServer({ apiUrl: cleanApi, wsUrl: cleanWs, token: setupToken })
+        .then(() => {
+          setRuntimeConfig({ apiUrl: cleanApi, wsUrl: cleanWs });
+          setShowSetup(false);
+          window.location.reload();
+        })
+        .catch(() => {
+          setSetupError(
+            "No se pudo escribir config.json en el servidor. Verifica FRONTEND_CONFIG_PATH y el token si aplica."
+          );
+        });
     };
 
     return (
@@ -191,6 +201,17 @@ export default function App({ runtimeConfig, needsSetup = false }) {
                 placeholder="https://api.midominio.com"
                 value={setupWsUrl}
                 onChange={(event) => setSetupWsUrl(event.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-xs uppercase tracking-wide text-slate-400">
+                Token de configuración (opcional)
+              </label>
+              <input
+                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
+                placeholder="CONFIG_WRITE_TOKEN"
+                value={setupToken}
+                onChange={(event) => setSetupToken(event.target.value)}
               />
             </div>
           </div>

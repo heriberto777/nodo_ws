@@ -1,6 +1,7 @@
 const { Router } = require("express");
 const auth = require("../middlewares/auth.middleware");
 const authRoutes = require("./auth.routes");
+const configRoutes = require("./config.routes");
 const linesRoutes = require("./lines.routes");
 const messagesRoutes = require("./messages.routes");
 const settingsRoutes = require("./settings.routes");
@@ -19,6 +20,7 @@ const router = Router();
 
 router.use("/health", healthRoutes);
 router.use("/auth", authRoutes);
+router.use("/config", configRoutes);
 router.use(auth);
 router.use(auditMiddleware);
 router.use("/lines", linesRoutes);

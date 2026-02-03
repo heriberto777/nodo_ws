@@ -90,3 +90,30 @@ export const loadRuntimeConfig = async () => {
   window.__RUNTIME_CONFIG__ = normalized;
   return { config: normalized, needsSetup };
 };
+
+export const saveRuntimeConfigToServer = async ({ apiUrl, wsUrl, token }) => {
+  const cleanApi = sanitize(apiUrl);
+  const cleanWs = sanitize(wsUrl);
+  if (!cleanApi || !cleanWs) {
+    throw new Error("Invalid apiUrl or wsUrl");
+  }
+
+  const baseUrl = cleanApi.replace(/\/$/, "");
+  const headers = { "Content-Type": "application/json" };
+  if (token) {
+    headers["x-config-token"] = token;
+  }
+
+  const response = await fetch(`${baseUrl}/api/config/runtime`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ apiUrl: cleanApi, wsUrl: cleanWs })
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || "Failed to write config");
+  }
+
+  return true;
+};
