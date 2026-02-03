@@ -15,6 +15,7 @@ router.post("/", requireRole(["admin"]), asyncHandler(linesController.create));
 router.post("/:id/connect", requireRole(["admin", "operator"]), asyncHandler(linesController.connect));
 router.post("/:id/disconnect", requireRole(["admin", "operator"]), asyncHandler(linesController.disconnect));
 router.get("/:id/settings", requireRole(["admin", "operator"]), asyncHandler(linesController.getSettings));
+router.get("/:id/stats", requireRole(["admin", "operator"]), asyncHandler(linesController.getStats));
 router.get("/:id/qr", requireRole(["admin", "operator"]), asyncHandler(linesController.getQr));
 router.post("/:id/qr/reset", requireRole(["admin", "operator"]), asyncHandler(linesController.resetQr));
 router.post("/:id/qr/cleanup", requireRole(["admin", "operator"]), asyncHandler(linesController.cleanupSession));

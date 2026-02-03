@@ -207,6 +207,44 @@ const resetSafeMode = async (req, res) => {
   res.json({ ok: true });
 };
 
+const getStats = async (req, res) => {
+  const line = await getLineById(req.params.id);
+  if (!line) throw createError(404, "Line not found");
+
+  const session = sessionManager.getSession(req.params.id);
+  if (!session || !session.ready) {
+    return res.json({
+      lineId: req.params.id,
+      chats: 0,
+      contacts: 0,
+      phone: line.phone,
+      name: line.name
+    });
+  }
+
+  try {
+    const chats = await session.client.getChats();
+    const contacts = await session.client.getContacts();
+
+    res.json({
+      lineId: req.params.id,
+      chats: chats ? chats.length : 0,
+      contacts: contacts ? contacts.length : 0,
+      phone: line.phone,
+      name: line.name
+    });
+  } catch (error) {
+    res.json({
+      lineId: req.params.id,
+      chats: 0,
+      contacts: 0,
+      phone: line.phone,
+      name: line.name,
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   create,
   list,
@@ -223,5 +261,6 @@ module.exports = {
   resetQr,
   listActiveSessions,
   cleanupSession,
-  releaseLock
+  releaseLock,
+  getStats
 };
