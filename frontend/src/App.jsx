@@ -13,7 +13,7 @@ import Metrics from "./pages/Metrics.jsx";
 import ToastStack from "./components/ToastStack.jsx";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
-import { saveRuntimeConfigToServer, setRuntimeConfig } from "./config/runtime.js";
+import { api } from "./api/client.js";
 
 const baseTabs = [
   { id: "dashboard", label: "Dashboard" },
@@ -28,14 +28,9 @@ const baseTabs = [
   { id: "settings", label: "Configuración", roles: ["admin"] }
 ];
 
-export default function App({ runtimeConfig, needsSetup = false }) {
+export default function App({ runtimeConfig }) {
   const config = runtimeConfig || {};
   const wsUrl = config.wsUrl || import.meta.env.VITE_WS_URL || "http://localhost:4000";
-  const [showSetup, setShowSetup] = useState(Boolean(needsSetup));
-  const [setupApiUrl, setSetupApiUrl] = useState(config.apiUrl || "");
-  const [setupWsUrl, setSetupWsUrl] = useState(config.wsUrl || "");
-  const [setupToken, setSetupToken] = useState("");
-  const [setupError, setSetupError] = useState("");
 
   const safeParseJson = (value) => {
     if (!value || typeof value !== "string") return null;
@@ -154,81 +149,6 @@ export default function App({ runtimeConfig, needsSetup = false }) {
       socket.disconnect();
     };
   }, [socket]);
-
-  if (showSetup) {
-    const handleSave = () => {
-      const cleanApi = setupApiUrl.trim();
-      const cleanWs = setupWsUrl.trim();
-      if (!cleanApi || !cleanWs) {
-        setSetupError("Debes completar API URL y WS URL.");
-        return;
-      }
-      setSetupError("");
-      saveRuntimeConfigToServer({ apiUrl: cleanApi, wsUrl: cleanWs, token: setupToken })
-        .then(() => {
-          setRuntimeConfig({ apiUrl: cleanApi, wsUrl: cleanWs });
-          setShowSetup(false);
-          window.location.reload();
-        })
-        .catch(() => {
-          setSetupError(
-            "No se pudo escribir config.json en el servidor. Verifica FRONTEND_CONFIG_PATH y el token si aplica."
-          );
-        });
-    };
-
-    return (
-      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-6">
-        <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
-          <h1 className="text-xl font-semibold">Configuración inicial</h1>
-          <p className="mt-2 text-sm text-slate-400">
-            Define las URLs del backend (API) y del WebSocket para este frontend.
-          </p>
-          <div className="mt-5 space-y-3">
-            <div>
-              <label className="text-xs uppercase tracking-wide text-slate-400">API URL</label>
-              <input
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
-                placeholder="https://api.midominio.com"
-                value={setupApiUrl}
-                onChange={(event) => setSetupApiUrl(event.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-xs uppercase tracking-wide text-slate-400">WS URL</label>
-              <input
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
-                placeholder="https://api.midominio.com"
-                value={setupWsUrl}
-                onChange={(event) => setSetupWsUrl(event.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-xs uppercase tracking-wide text-slate-400">
-                Token de configuración (opcional)
-              </label>
-              <input
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
-                placeholder="CONFIG_WRITE_TOKEN"
-                value={setupToken}
-                onChange={(event) => setSetupToken(event.target.value)}
-              />
-            </div>
-          </div>
-          {setupError ? <p className="mt-3 text-sm text-rose-400">{setupError}</p> : null}
-          <button
-            className="mt-5 w-full rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950"
-            onClick={handleSave}
-          >
-            Guardar configuración
-          </button>
-          <p className="mt-3 text-xs text-slate-500">
-            Puedes actualizar esto editando public/config.json o limpiando el storage.
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   useEffect(() => {
     if (!user) return;
