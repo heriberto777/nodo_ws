@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { api } from "../api/client";
 
 export default function LineList({
   lines,
@@ -20,10 +21,9 @@ export default function LineList({
       const newStats = {};
       for (const line of lines) {
         try {
-          const response = await fetch(`/api/lines/${line.id || line.lineId}/stats`);
-          if (response.ok) {
-            const data = await response.json();
-            newStats[line.id || line.lineId] = data;
+          const response = await api.get(`/lines/${line.id || line.lineId}/stats`);
+          if (response.status === 200) {
+            newStats[line.id || line.lineId] = response.data;
           }
         } catch (error) {
           console.error(`Error fetching stats for line ${line.id}:`, error);
