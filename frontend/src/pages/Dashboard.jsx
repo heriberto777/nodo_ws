@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client.js";
-import StatusCard from "../components/StatusCard.jsx";
 import QRCodePanel from "../components/QRCodePanel.jsx";
 import LogsPanel from "../components/LogsPanel.jsx";
 import DashboardHeader from "../components/DashboardHeader.jsx";
@@ -114,56 +113,6 @@ export default function Dashboard({ statusList, qrState, logs, user, riskEvents 
           </div>
         </div>
       ) : null}
-      <div className="space-y-4 lg:col-span-2">
-        <h2 className="text-lg font-semibold">Estado de líneas</h2>
-        {metrics && (
-          <div className="grid gap-3 rounded border border-slate-800 bg-slate-900 p-4 text-sm md:grid-cols-6">
-            <div>
-              <p className="text-xs text-slate-400">Líneas</p>
-              <p className="text-lg font-semibold">{metrics.totalLines}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-400">Conectadas</p>
-              <p className="text-lg font-semibold">{metrics.connectedLines}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-400">Mensajes 24h</p>
-              <p className="text-lg font-semibold">{metrics.messages24h}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-400">Riesgos 24h</p>
-              <p className="text-lg font-semibold">{metrics.riskEvents24h}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-400">Respuesta 24h</p>
-              <p className="text-lg font-semibold">
-                {kpis?.responseRate != null ? `${kpis.responseRate}%` : "-"}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-400">Avg respuesta</p>
-              <p className="text-lg font-semibold">
-                {kpis?.avgResponseSeconds != null ? `${kpis.avgResponseSeconds}s` : "-"}
-              </p>
-            </div>
-          </div>
-        )}
-        <div className="grid gap-4 md:grid-cols-2">
-          {lines.map((line) => (
-            <StatusCard
-              key={line.id}
-              lineId={line.id}
-              name={line.name}
-              phone={line.phone}
-              status={statusMap[line.id] || line.status || "CREATED"}
-              riskScore={riskScores[line.id]?.score ?? null}
-            />
-          ))}
-          {!lines.length && (
-            <p className="text-slate-400">No hay sesiones activas.</p>
-          )}
-        </div>
-      </div>
       <div className="lg:col-span-3">
         <DashboardHeader
           searchTerm={searchTerm}
@@ -171,6 +120,32 @@ export default function Dashboard({ statusList, qrState, logs, user, riskEvents 
           linesCount={lines.length}
           connectedCount={metrics?.connectedLines || 0}
         />
+        
+        {/* Métricas 24h */}
+        {metrics && (
+          <div className="mt-4 grid gap-3 rounded border border-slate-800 bg-slate-900 p-4 text-sm md:grid-cols-4">
+            <div>
+              <p className="text-xs text-slate-400">Mensajes 24h</p>
+              <p className="mt-1 text-2xl font-bold text-blue-400">{metrics.messages24h}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Riesgos 24h</p>
+              <p className="mt-1 text-2xl font-bold text-rose-400">{metrics.riskEvents24h}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Respuesta 24h</p>
+              <p className="mt-1 text-2xl font-bold text-emerald-400">
+                {kpis?.responseRate != null ? `${kpis.responseRate}%` : "-"}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Avg respuesta</p>
+              <p className="mt-1 text-2xl font-bold text-amber-400">
+                {kpis?.avgResponseSeconds != null ? `${kpis.avgResponseSeconds}s` : "-"}
+              </p>
+            </div>
+          </div>
+        )}
         <div className="mt-6">
           <LineList
             lines={lines}
