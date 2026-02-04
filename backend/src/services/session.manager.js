@@ -535,7 +535,9 @@ class SessionManager extends EventEmitter {
         return this.sessions.get(lineId) || session;
       }
 
-      throw error;
+      // Return the session with the error logged instead of throwing
+      logger.warn("Connect failed with unknown error", { lineId, error: error.message });
+      return session;
     }
   }
 
