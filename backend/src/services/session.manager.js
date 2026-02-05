@@ -375,21 +375,56 @@ class SessionManager extends EventEmitter {
         logger.warn("Failed to resolve contact name", { lineId, error: error.message });
       }
 
+      // Extract wa_id (phone number without special characters)
+      const extractWaId = (phone) => {
+        return phone?.replace(/\D/g, '') || phone;
+      };
+
+      const waIdFrom = extractWaId(message.from);
+      const waIdTo = extractWaId(message.to);
+
+      // WhatsApp-compatible payload structure
       const payload = {
-        lineId,
+        // Standard WhatsApp fields
+        wa_id: waIdFrom,
         from: message.from,
+        from_name: displayName,
         to: message.to,
+        to_id: waIdTo,
+        
+        // Message content
+        type: message.hasMedia ? "image" : "text",
+        text: message.body,
+        body: message.body,
+        
+        // Metadata
+        timestamp: Math.floor(message.timestamp),
+        message_id: message.id._serialized,
+        
+        // Context
+        lineId,
         author: message.author || message.from,
         senderName: displayName,
-        body: message.body,
-        timestamp: message.timestamp,
-        isGroup: message.isGroupMsg
+        isGroup: message.isGroupMsg,
+        isFromMe: message.fromMe,
+        
+        // For compatibility with old format
+        _legacyPayload: {
+          from: message.from,
+          to: message.to,
+          author: message.author || message.from,
+          senderName: displayName,
+          body: message.body,
+          timestamp: message.timestamp,
+          isGroup: message.isGroupMsg
+        }
       };
 
       if (settings?.webhook_base64 && message.hasMedia) {
         try {
           const media = await message.downloadMedia();
           payload.media = media;
+          payload.media_type = media.mimetype;
         } catch (error) {
           logger.error("Failed to download media", { lineId, error: error.message });
         }
