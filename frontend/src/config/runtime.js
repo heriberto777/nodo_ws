@@ -36,12 +36,30 @@ export const loadRuntimeConfig = async () => {
   let fileConfig = null;
 
   try {
-    const response = await fetch(`/config.json?t=${Date.now()}`, { cache: "no-store" });
+    const response = await fetch(`/config.json?t=${Date.now()}`, { 
+      cache: "no-store",
+      credentials: "same-origin"
+    });
     if (response.ok) {
-      const json = await response.json();
-      fileConfig = pickConfig(json);
+      const text = await response.text();
+      if (!text || text.trim().length === 0) {
+        console.warn("config.json is empty, using defaults");
+        fileConfig = null;
+      } else {
+        try {
+          const json = JSON.parse(text);
+          fileConfig = pickConfig(json);
+        } catch (parseError) {
+          console.error("Failed to parse config.json:", parseError.message);
+          fileConfig = null;
+        }
+      }
+    } else {
+      console.warn(`Failed to load config.json: HTTP ${response.status}`);
+      fileConfig = null;
     }
-  } catch {
+  } catch (error) {
+    console.warn("Error loading config.json:", error.message);
     fileConfig = null;
   }
 
@@ -55,6 +73,7 @@ export const loadRuntimeConfig = async () => {
     wsUrl: isValidUrl(merged.wsUrl) ? merged.wsUrl : DEFAULT_CONFIG.wsUrl
   };
 
+  console.log("Runtime config loaded:", { apiUrl: normalized.apiUrl, wsUrl: normalized.wsUrl });
   window.__RUNTIME_CONFIG__ = normalized;
   return { config: normalized };
 };

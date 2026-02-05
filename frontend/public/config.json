@@ -1,4 +1,4 @@
 {
-  "apiUrl": "https://catelli.ddns.net:8095",
-  "wsUrl": "https://catelli.ddns.net:8095"
+  "apiUrl": "https://api.ciguadev.com",
+  "wsUrl": "wss://api.ciguadev.com"
 }

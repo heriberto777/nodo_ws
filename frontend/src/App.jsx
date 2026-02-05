@@ -71,7 +71,24 @@ export default function App({ runtimeConfig }) {
     return parsed;
   });
 
-  const socket = useMemo(() => (user ? io(wsUrl) : null), [user, wsUrl]);
+  const socket = useMemo(() => {
+    if (!user) return null;
+    
+    console.log("Initializing Socket.io with wsUrl:", wsUrl);
+    
+    return io(wsUrl, {
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: 5,
+      transports: ["websocket", "polling"],
+      secure: wsUrl.startsWith("https") || wsUrl.startsWith("wss"),
+      rejectUnauthorized: false,
+      extraHeaders: {
+        Authorization: `Bearer ${localStorage.getItem("wa_token")}`
+      }
+    });
+  }, [user, wsUrl]);
   const tabs = useMemo(() => {
     if (!user) return [];
     return baseTabs.filter((tab) => {
