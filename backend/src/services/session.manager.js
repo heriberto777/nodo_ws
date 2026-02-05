@@ -231,7 +231,8 @@ class SessionManager extends EventEmitter {
       lastError: null,
       lastQrAt: null,
       lastConnectAt: null,
-      lastInitAttemptAt: null
+      lastInitAttemptAt: null,
+      intentionallyDisconnected: false
     };
 
     this.sessions.set(lineId, session);
@@ -341,8 +342,11 @@ class SessionManager extends EventEmitter {
         await this.evaluateRisk(lineId);
       }
 
-      if (reason !== "BAN") {
+      // Only auto-reconnect if not intentionally disconnected by user
+      if (reason !== "BAN" && !session.intentionallyDisconnected) {
         this.scheduleReconnect(lineId, "DISCONNECTED");
+      } else if (session.intentionallyDisconnected) {
+        logger.info("Skipping auto-reconnect: intentional disconnection", { lineId });
       }
     });
 
@@ -502,6 +506,9 @@ class SessionManager extends EventEmitter {
       this.reconnectTimers.delete(lineId);
     }
 
+    // Reset intentional disconnect flag when user wants to reconnect
+    session.intentionallyDisconnected = false;
+
     if (session.ready || session.initializing) {
       return session;
     }
@@ -581,7 +588,20 @@ class SessionManager extends EventEmitter {
     const session = this.sessions.get(lineId);
     if (!session) return null;
 
-    await session.client.destroy();
+    // Mark as intentionally disconnected to prevent auto-reconnect
+    session.intentionallyDisconnected = true;
+
+    try {
+      if (session.client && typeof session.client.destroy === 'function') {
+        await session.client.destroy();
+      }
+    } catch (error) {
+      logger.warn("Error destroying client during disconnect", {
+        lineId,
+        error: error.message
+      });
+    }
+
     session.ready = false;
     session.status = SESSION_STATUSES.DISCONNECTED;
     await updateStatus(lineId, session.status);

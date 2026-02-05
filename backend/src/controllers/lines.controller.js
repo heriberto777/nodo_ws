@@ -1,5 +1,6 @@
 const Joi = require("joi");
 const createError = require("http-errors");
+const logger = require("../config/logger");
 const {
   createLine,
   listLines,
@@ -84,12 +85,18 @@ const disconnect = async (req, res) => {
   const { id } = req.params;
   const line = await getLineById(id);
   if (!line) throw createError(404, "Line not found");
-  const session = await sessionManager.disconnect(id);
-  if (!session) {
-    await updateStatus(id, SESSION_STATUSES.DISCONNECTED);
-    return res.json({ lineId: id, status: SESSION_STATUSES.DISCONNECTED });
+  
+  try {
+    const session = await sessionManager.disconnect(id);
+    if (!session) {
+      await updateStatus(id, SESSION_STATUSES.DISCONNECTED);
+      return res.json({ ok: true, lineId: id, status: SESSION_STATUSES.DISCONNECTED });
+    }
+    res.json({ ok: true, lineId: id, status: session.status });
+  } catch (error) {
+    logger.error("Error disconnecting line", { lineId: id, error: error.message });
+    throw error;
   }
-  res.json({ lineId: id, status: session.status });
 };
 
 const updateLineWebhook = async (req, res) => {
