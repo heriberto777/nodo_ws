@@ -51,6 +51,13 @@ const inbound = async (req, res) => {
   // message, text, o body pueden contener el mensaje
   const finalMessage = messageText || value.text || value.body;
 
+  logger.info("Inbound webhook payload", {
+    lineId,
+    to,
+    hasMessage: Boolean(finalMessage && finalMessage.length),
+    rawMessageLength: finalMessage ? finalMessage.length : 0
+  });
+
   try {
     // Verificar warm-up limits
     if (!(await isAllowed(lineId))) {
