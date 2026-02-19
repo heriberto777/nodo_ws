@@ -8,7 +8,10 @@ const { sendMessageWithDelay } = require("./whatsapp.service");
 const { isAllowed } = require("./warmup.service");
 const { checkRateLimit } = require("./ratelimit.service");
 
-const connection = redis.duplicate();
+const connection = redis.duplicate({
+  maxRetriesPerRequest: null,
+  enableReadyCheck: false
+});
 const queueName = env.messageQueueName;
 
 const queue = new Queue(queueName, {
