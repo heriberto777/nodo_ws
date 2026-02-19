@@ -11,6 +11,7 @@ export default function LineList({
   onDiagnose,
   onDelete,
   onResetSafeMode,
+  onReleaseLock,
   onShowQr,
   disabled,
   searchTerm = ""
@@ -177,6 +178,15 @@ export default function LineList({
               >
                 Desconectar
               </button>
+              {onReleaseLock && (
+                <button
+                  onClick={() => onReleaseLock(line.id || line.lineId)}
+                  disabled={disabled}
+                  className="flex-1 rounded bg-rose-500/10 px-2 py-2 text-xs font-medium text-rose-200 hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Liberar lock
+                </button>
+              )}
               {onDelete && (
                 <button
                   onClick={() => onDelete(line.id || line.lineId)}

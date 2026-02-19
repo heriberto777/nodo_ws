@@ -165,6 +165,16 @@ export default function Lines({ statusList, qrState, user }) {
     loadLines();
   };
 
+  const handleReleaseLock = async (lineId) => {
+    if (!window.confirm("Liberar el lock forzará el reinicio de la sesión. ¿Continuar?")) return;
+    try {
+      await api.post(`/lines/${lineId}/lock/release`);
+      loadLines();
+    } catch (error) {
+      window.alert(error?.response?.data?.message || "No se pudo liberar el lock");
+    }
+  };
+
   const qrMatchesLine =
     (modal.type === "qr" || modal.type === "diagnostic") &&
     qrState?.lineId &&
@@ -294,6 +304,7 @@ export default function Lines({ statusList, qrState, user }) {
         onDiagnose={handleDiagnose}
         onShowQr={handleShowQr}
         onResetSafeMode={canManageLines ? handleResetSafeMode : null}
+        onReleaseLock={canManageLines ? handleReleaseLock : null}
         onDelete={canManageLines ? handleDeleteLine : null}
         disabled={!canOperateLines}
       />
