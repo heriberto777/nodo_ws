@@ -35,7 +35,7 @@ Ejecuta el script en backend/scripts/create-admin.js con nombre, correo y contra
 - El middleware de errores responde una sola vez y registra contexto (evita dobles envíos de headers)
 - Coordinación multi-nodo mediante locks distribuidos en Redis (configurables con SESSION_LOCK_TTL_MS / SESSION_LOCK_ACQUIRE_TIMEOUT_MS / SESSION_LOCK_RETRY_DELAY_MS)
 - Nodo actual identificado por NODE_ID (por defecto hostname) y ownership persistido en Redis (`session:owner:<lineId>`) con TTL configurable vía SESSION_OWNER_TTL_MS
-- Envíos outbound se procesan mediante BullMQ; configura MESSAGE_QUEUE_NAME, MESSAGE_QUEUE_CONCURRENCY y MESSAGE_QUEUE_ATTEMPTS según tu carga
+- Envíos outbound se procesan mediante BullMQ; configura MESSAGE_QUEUE_NAME (sin caracteres reservados como `:`), MESSAGE_QUEUE_CONCURRENCY y MESSAGE_QUEUE_ATTEMPTS según tu carga
 
 ## Endpoints principales
 - POST /api/auth/register

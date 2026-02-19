@@ -27,7 +27,7 @@ module.exports = {
   sessionLockAcquireTimeoutMs: Number(process.env.SESSION_LOCK_ACQUIRE_TIMEOUT_MS || 5000),
   sessionLockRetryDelayMs: Number(process.env.SESSION_LOCK_RETRY_DELAY_MS || 200),
   sessionOwnerTtlMs: Number(process.env.SESSION_OWNER_TTL_MS || 5 * 60 * 1000),
-  messageQueueName: process.env.MESSAGE_QUEUE_NAME || "wa:outbound",
+  messageQueueName: process.env.MESSAGE_QUEUE_NAME || "wa_outbound",
   messageQueueConcurrency: Number(process.env.MESSAGE_QUEUE_CONCURRENCY || 5),
   messageQueueAttempts: Number(process.env.MESSAGE_QUEUE_ATTEMPTS || 3)
 };
