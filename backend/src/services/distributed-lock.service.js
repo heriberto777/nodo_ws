@@ -55,7 +55,23 @@ const releaseLineLock = async (handle) => {
   }
 };
 
+const forceReleaseLineLock = async (lineId) => {
+  const key = buildKey(lineId);
+  try {
+    const removed = await redis.del(key);
+    if (removed === 1) {
+      logger.warn("Force released distributed lock", { lineId });
+      return true;
+    }
+    return false;
+  } catch (error) {
+    logger.error("Force lock release failed", { lineId, error: error.message });
+    return false;
+  }
+};
+
 module.exports = {
   acquireLineLock,
-  releaseLineLock
+  releaseLineLock,
+  forceReleaseLineLock
 };

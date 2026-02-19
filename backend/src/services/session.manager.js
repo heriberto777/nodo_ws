@@ -12,7 +12,11 @@ const { forwardInboundMessage } = require("./n8n.service");
 const { handleInboundMessage } = require("./chatbot.service");
 const { checkRateLimit } = require("./ratelimit.service");
 const { isAllowed } = require("./warmup.service");
-const { acquireLineLock, releaseLineLock } = require("./distributed-lock.service");
+const {
+  acquireLineLock,
+  releaseLineLock,
+  forceReleaseLineLock
+} = require("./distributed-lock.service");
 const ownership = require("./session-ownership.service");
 
 class SessionManager extends EventEmitter {
@@ -746,10 +750,15 @@ class SessionManager extends EventEmitter {
 
   async releaseSessionLock(lineId) {
     lineId = String(lineId);
-    const distributedHandle = await acquireLineLock(lineId);
+    let distributedHandle = await acquireLineLock(lineId);
     if (!distributedHandle) {
-      logger.warn("Distributed session lock active, release skipped", { lineId });
-      return false;
+      logger.warn("Distributed session lock active, forcing unlock", { lineId });
+      await forceReleaseLineLock(lineId);
+      distributedHandle = await acquireLineLock(lineId);
+      if (!distributedHandle) {
+        logger.error("Unable to acquire lock after force release", { lineId });
+        return false;
+      }
     }
 
     const session = this.sessions.get(lineId);
