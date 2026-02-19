@@ -545,6 +545,22 @@ class SessionManager extends EventEmitter {
       if (lock?.locked) {
         session.lastError = `session_locked:${lock.files.join(",")}`;
         logger.warn("Session lock detected", { lineId, files: lock.files });
+        try {
+          await this.killBrowserForSession(lineId);
+          const cleaned = await this.cleanupSession(lineId, {
+            lockHandle: distributedLockHandle,
+            preserveOwner: true
+          });
+          if (cleaned) {
+            logger.info("Session lock cleaned, scheduling reconnect", { lineId });
+            this.scheduleReconnect(lineId, "SESSION_LOCK_CLEANED", { reset: true });
+          }
+        } catch (cleanupError) {
+          logger.error("Failed to cleanup after session lock", {
+            lineId,
+            error: cleanupError.message
+          });
+        }
         return session;
       }
 
