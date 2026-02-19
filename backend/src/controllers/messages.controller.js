@@ -1,10 +1,9 @@
 const Joi = require("joi");
 const createError = require("http-errors");
-const { sendMessage } = require("../services/whatsapp.service");
 const { checkRateLimit } = require("../services/ratelimit.service");
 const { isAllowed } = require("../services/warmup.service");
-const { createMessage, listRecent } = require("../models/message.model");
-const { getOrCreateConversation, touchConversation } = require("../models/conversation.model");
+const { listRecent } = require("../models/message.model");
+const { enqueueOutboundMessage, getQueueMetrics } = require("../services/message-queue.service");
 
 const sendSchema = Joi.object({
   lineId: Joi.string().required(),
@@ -28,20 +27,8 @@ const send = async (req, res) => {
     throw createError(429, "Rate limit exceeded");
   }
 
-  const conversation = await getOrCreateConversation({ lineId, contact: to });
-  await touchConversation(conversation.id);
-
-  await sendMessage({ lineId, to, message });
-  const record = await createMessage({
-    lineId,
-    conversationId: conversation.id,
-    direction: "OUT",
-    to,
-    from: lineId,
-    body: message
-  });
-
-  res.status(201).json({ ok: true, message: record });
+  const jobId = await enqueueOutboundMessage({ lineId, to, message, type: "text" });
+  res.status(202).json({ ok: true, jobId });
 };
 
 const recent = async (req, res) => {
@@ -50,4 +37,9 @@ const recent = async (req, res) => {
   res.json(items);
 };
 
-module.exports = { send, recent };
+const queueStats = async (_req, res) => {
+  const metrics = await getQueueMetrics();
+  res.json(metrics);
+};
+
+module.exports = { send, recent, queueStats };

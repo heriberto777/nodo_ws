@@ -7,5 +7,10 @@ const router = Router();
 
 router.post("/send", requireRole(["admin", "operator"]), asyncHandler(messagesController.send));
 router.get("/recent", requireRole(["admin", "operator", "viewer"]), asyncHandler(messagesController.recent));
+router.get(
+	"/queue/stats",
+	requireRole(["admin"]),
+	asyncHandler(messagesController.queueStats)
+);
 
 module.exports = router;

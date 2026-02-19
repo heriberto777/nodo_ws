@@ -1,10 +1,12 @@
 const dotenv = require("dotenv");
+const os = require("os");
 
 dotenv.config();
 
 module.exports = {
   port: process.env.PORT || 4000,
   nodeEnv: process.env.NODE_ENV || "development",
+  nodeId: process.env.NODE_ID || os.hostname() || `node-${process.pid}`,
   apiKey: process.env.API_KEY || "",
   jwtSecret: process.env.JWT_SECRET || "",
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "12h",
@@ -20,5 +22,12 @@ module.exports = {
   autoKillBrowserLocks:
     process.env.AUTO_KILL_BROWSER_LOCKS === "true" ||
     (process.env.AUTO_KILL_BROWSER_LOCKS !== "false" &&
-      (process.env.NODE_ENV || "development") !== "production")
+      (process.env.NODE_ENV || "development") !== "production"),
+  sessionLockTtlMs: Number(process.env.SESSION_LOCK_TTL_MS || 30000),
+  sessionLockAcquireTimeoutMs: Number(process.env.SESSION_LOCK_ACQUIRE_TIMEOUT_MS || 5000),
+  sessionLockRetryDelayMs: Number(process.env.SESSION_LOCK_RETRY_DELAY_MS || 200),
+  sessionOwnerTtlMs: Number(process.env.SESSION_OWNER_TTL_MS || 5 * 60 * 1000),
+  messageQueueName: process.env.MESSAGE_QUEUE_NAME || "wa:outbound",
+  messageQueueConcurrency: Number(process.env.MESSAGE_QUEUE_CONCURRENCY || 5),
+  messageQueueAttempts: Number(process.env.MESSAGE_QUEUE_ATTEMPTS || 3)
 };

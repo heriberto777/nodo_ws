@@ -20,8 +20,11 @@ export default function Dashboard({ statusList, qrState, logs, user, riskEvents 
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [recentEventsModalOpen, setRecentEventsModalOpen] = useState(false);
   const [selectedLineForQr, setSelectedLineForQr] = useState(null);
+  const [queueStats, setQueueStats] = useState(null);
+  const isAdmin = user?.role === "admin";
 
   useEffect(() => {
+    let cancelled = false;
     const loadLines = async () => {
       const response = await api.get("/lines");
       const map = response.data.reduce((acc, line) => {
@@ -63,11 +66,27 @@ export default function Dashboard({ statusList, qrState, logs, user, riskEvents 
       setKpis(response.data);
     };
 
+    const loadQueueStats = async () => {
+      if (!isAdmin) {
+        if (!cancelled) setQueueStats(null);
+        return;
+      }
+      try {
+        const response = await api.get("/messages/queue/stats");
+        if (!cancelled) setQueueStats(response.data);
+      } catch (error) {
+        if (!cancelled) {
+          setQueueStats({ error: error?.response?.data?.message || error.message });
+        }
+      }
+    };
+
     loadLines();
     loadRecent();
     loadRiskScores();
     loadMetrics();
     loadKpis();
+    loadQueueStats();
 
     const intervalId = setInterval(() => {
       loadLines();
@@ -75,10 +94,14 @@ export default function Dashboard({ statusList, qrState, logs, user, riskEvents 
       loadRiskScores();
       loadMetrics();
       loadKpis();
+      loadQueueStats();
     }, 5000);
 
-    return () => clearInterval(intervalId);
-  }, []);
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [isAdmin]);
 
   const statusMap = statusList.reduce((acc, status) => {
     acc[status.lineId] = status.status;
@@ -144,6 +167,48 @@ export default function Dashboard({ statusList, qrState, logs, user, riskEvents 
                 {kpis?.avgResponseSeconds != null ? `${kpis.avgResponseSeconds}s` : "-"}
               </p>
             </div>
+          </div>
+        )}
+        {isAdmin && (
+          <div className="mt-4 rounded border border-slate-800 bg-gradient-to-r from-slate-900 to-slate-800 p-4 text-sm">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-400">Cola outbound</p>
+                <p
+                  className={`text-2xl font-semibold ${
+                    queueStats?.worker?.isRunning ? "text-emerald-400" : "text-rose-400"
+                  }`}
+                >
+                  {queueStats?.worker?.isRunning ? "En ejecución" : "Sin worker"}
+                </p>
+                <p className="text-xs text-slate-500">
+                  Nodo {queueStats?.nodeId || "-"} · Conc {queueStats?.worker?.concurrency || 0}
+                </p>
+              </div>
+              <div className="grid flex-1 grid-cols-3 gap-3 text-center">
+                <div className="rounded border border-slate-700 bg-slate-950/40 p-3">
+                  <p className="text-[10px] tracking-wide text-slate-400">Pendientes</p>
+                  <p className="mt-1 text-xl font-bold text-slate-50">
+                    {queueStats?.counts?.waiting ?? "-"}
+                  </p>
+                </div>
+                <div className="rounded border border-slate-700 bg-slate-950/40 p-3">
+                  <p className="text-[10px] tracking-wide text-slate-400">Activos</p>
+                  <p className="mt-1 text-xl font-bold text-blue-300">
+                    {queueStats?.counts?.active ?? "-"}
+                  </p>
+                </div>
+                <div className="rounded border border-slate-700 bg-slate-950/40 p-3">
+                  <p className="text-[10px] tracking-wide text-slate-400">Fallidos</p>
+                  <p className="mt-1 text-xl font-bold text-rose-300">
+                    {queueStats?.counts?.failed ?? "-"}
+                  </p>
+                </div>
+              </div>
+            </div>
+            {queueStats?.error && (
+              <p className="mt-3 text-xs text-rose-300">{queueStats.error}</p>
+            )}
           </div>
         )}
         <div className="mt-6">

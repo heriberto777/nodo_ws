@@ -12,6 +12,8 @@ const { forwardInboundMessage } = require("./n8n.service");
 const { handleInboundMessage } = require("./chatbot.service");
 const { checkRateLimit } = require("./ratelimit.service");
 const { isAllowed } = require("./warmup.service");
+const { acquireLineLock, releaseLineLock } = require("./distributed-lock.service");
+const ownership = require("./session-ownership.service");
 
 class SessionManager extends EventEmitter {
   constructor() {
@@ -278,6 +280,7 @@ class SessionManager extends EventEmitter {
       this.resetCounter(this.qrCounters, lineId);
       this.resetCounter(this.disconnectCounters, lineId);
       this.reconnectAttempts.delete(lineId);
+      await ownership.setOwner(lineId, env.nodeId);
     });
 
     client.on("authenticated", async () => {
@@ -304,6 +307,11 @@ class SessionManager extends EventEmitter {
       session.lastError = reason || "disconnected";
       await updateStatus(lineId, session.status);
       this.emitStatus(lineId, session.status);
+      if (session.intentionallyDisconnected) {
+        await ownership.clearOwner(lineId);
+      } else {
+        await ownership.touchOwner(lineId);
+      }
 
       const disconnects = this.bumpCounter(this.disconnectCounters, lineId, 15 * 60 * 1000);
       if (reason === "BAN") {
@@ -513,13 +521,6 @@ class SessionManager extends EventEmitter {
       return session;
     }
 
-    const lock = await this.checkSessionLock(lineId);
-    if (lock?.locked) {
-      session.lastError = `session_locked:${lock.files.join(",")}`;
-      logger.warn("Session lock detected", { lineId, files: lock.files });
-      return session;
-    }
-
     const cooldownMs = 15000;
     if (session.lastInitAttemptAt) {
       const delta = Date.now() - new Date(session.lastInitAttemptAt).getTime();
@@ -528,7 +529,21 @@ class SessionManager extends EventEmitter {
       }
     }
 
+    const distributedLockHandle = await acquireLineLock(lineId);
+    if (!distributedLockHandle) {
+      session.lastError = "session_lock_in_use";
+      logger.warn("Distributed session lock active", { lineId });
+      return session;
+    }
+
     try {
+      const lock = await this.checkSessionLock(lineId);
+      if (lock?.locked) {
+        session.lastError = `session_locked:${lock.files.join(",")}`;
+        logger.warn("Session lock detected", { lineId, files: lock.files });
+        return session;
+      }
+
       session.initializing = true;
       session.lastConnectAt = new Date().toISOString();
       session.lastInitAttemptAt = session.lastConnectAt;
@@ -546,7 +561,10 @@ class SessionManager extends EventEmitter {
       const message = String(error?.message || "");
       if (message.includes("Target closed")) {
         try {
-          await this.cleanupSession(lineId);
+          await this.cleanupSession(lineId, {
+            lockHandle: distributedLockHandle,
+            preserveOwner: true
+          });
         } catch (cleanupError) {
           logger.warn("Cleanup after target closed failed", {
             lineId,
@@ -566,7 +584,10 @@ class SessionManager extends EventEmitter {
         }
         await this.killBrowserForSession(lineId);
         try {
-          await this.cleanupSession(lineId);
+          await this.cleanupSession(lineId, {
+            lockHandle: distributedLockHandle,
+            preserveOwner: true
+          });
         } catch (cleanupError) {
           logger.warn("Cleanup after browser conflict failed", {
             lineId,
@@ -580,6 +601,8 @@ class SessionManager extends EventEmitter {
       // Return the session with the error logged instead of throwing
       logger.warn("Connect failed with unknown error", { lineId, error: error.message });
       return session;
+    } finally {
+      await releaseLineLock(distributedLockHandle);
     }
   }
 
@@ -606,6 +629,7 @@ class SessionManager extends EventEmitter {
     session.status = SESSION_STATUSES.DISCONNECTED;
     await updateStatus(lineId, session.status);
     this.emitStatus(lineId, session.status);
+    await ownership.clearOwner(lineId);
     return session;
   }
 
@@ -619,6 +643,7 @@ class SessionManager extends EventEmitter {
       logger.error("Failed to destroy session", { lineId, error: error.message });
     }
     this.sessions.delete(lineId);
+    await ownership.clearOwner(lineId);
     return true;
   }
 
@@ -658,88 +683,119 @@ class SessionManager extends EventEmitter {
     return this.connect(lineId);
   }
 
-  async cleanupSession(lineId) {
+  async cleanupSession(lineId, options = {}) {
     lineId = String(lineId);
     const path = require("path");
     const fs = require("fs/promises");
-    try {
-      await this.resetSession(lineId);
-    } catch (error) {
-      logger.warn("Failed to reset session during cleanup", { lineId, error: error.message });
-    }
-
-    const sessionDir = this.getSessionDir(lineId);
-    const lockFiles = ["SingletonLock", "SingletonSocket", "SingletonCookie", "lockfile"];
-    const lockLocations = [sessionDir, path.join(sessionDir, "Default")];
-    const tryRemove = async (attempt) => {
-      try {
-        await fs.rm(sessionDir, { recursive: true, force: true });
-        this.sessions.delete(lineId);
-        return true;
-      } catch (error) {
-        const message = String(error?.message || "");
-        if (message.includes("EBUSY") && attempt < 3) {
-          for (const location of lockLocations) {
-            for (const file of lockFiles) {
-              try {
-                await fs.rm(path.join(location, file), { force: true });
-              } catch {
-                // ignore
-              }
-            }
-          }
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          return tryRemove(attempt + 1);
-        }
-        logger.error("Failed to cleanup session directory", { lineId, error: error.message });
+    let acquiredHandle = null;
+    const preserveOwner = Boolean(options.preserveOwner);
+    if (!options.lockHandle) {
+      acquiredHandle = await acquireLineLock(lineId);
+      if (!acquiredHandle) {
+        logger.warn("Distributed session lock active, cleanup skipped", { lineId });
         return false;
       }
-    };
+    }
 
-    return tryRemove(0);
+    try {
+      try {
+        await this.resetSession(lineId);
+      } catch (error) {
+        logger.warn("Failed to reset session during cleanup", { lineId, error: error.message });
+      }
+
+      const sessionDir = this.getSessionDir(lineId);
+      const lockFiles = ["SingletonLock", "SingletonSocket", "SingletonCookie", "lockfile"];
+      const lockLocations = [sessionDir, path.join(sessionDir, "Default")];
+      const tryRemove = async (attempt) => {
+        try {
+          await fs.rm(sessionDir, { recursive: true, force: true });
+          this.sessions.delete(lineId);
+          return true;
+        } catch (error) {
+          const message = String(error?.message || "");
+          if (message.includes("EBUSY") && attempt < 3) {
+            for (const location of lockLocations) {
+              for (const file of lockFiles) {
+                try {
+                  await fs.rm(path.join(location, file), { force: true });
+                } catch {
+                  // ignore
+                }
+              }
+            }
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            return tryRemove(attempt + 1);
+          }
+          logger.error("Failed to cleanup session directory", { lineId, error: error.message });
+          return false;
+        }
+      };
+
+      const cleaned = await tryRemove(0);
+      if (cleaned && !preserveOwner) {
+        await ownership.clearOwner(lineId);
+      }
+      return cleaned;
+    } finally {
+      if (acquiredHandle) {
+        await releaseLineLock(acquiredHandle);
+      }
+    }
   }
 
   async releaseSessionLock(lineId) {
     lineId = String(lineId);
+    const distributedHandle = await acquireLineLock(lineId);
+    if (!distributedHandle) {
+      logger.warn("Distributed session lock active, release skipped", { lineId });
+      return false;
+    }
+
     const session = this.sessions.get(lineId);
     try {
-      if (session?.client?.pupBrowser) {
-        await session.client.pupBrowser.close();
+      try {
+        if (session?.client?.pupBrowser) {
+          await session.client.pupBrowser.close();
+        }
+      } catch (error) {
+        logger.warn("Failed to close puppeteer browser", { lineId, error: error.message });
       }
-    } catch (error) {
-      logger.warn("Failed to close puppeteer browser", { lineId, error: error.message });
-    }
-    try {
-      if (session?.client) {
-        await session.client.destroy();
+      try {
+        if (session?.client) {
+          await session.client.destroy();
+        }
+      } catch (error) {
+        logger.warn("Failed to destroy client during lock release", {
+          lineId,
+          error: error.message
+        });
       }
-    } catch (error) {
-      logger.warn("Failed to destroy client during lock release", {
-        lineId,
-        error: error.message
-      });
-    }
 
-    await this.killBrowserForSession(lineId);
+      await this.killBrowserForSession(lineId);
 
-    const cleaned = await this.cleanupSession(lineId);
-    if (!cleaned) {
-      const path = require("path");
-      const fs = require("fs/promises");
-      const sessionDir = this.getSessionDir(lineId);
-      const lockFiles = ["SingletonLock", "SingletonSocket", "SingletonCookie", "lockfile"];
-      const lockLocations = [sessionDir, path.join(sessionDir, "Default")];
-      for (const location of lockLocations) {
-        for (const file of lockFiles) {
-          try {
-            await fs.rm(path.join(location, file), { force: true });
-          } catch {
-            // ignore
+      const cleaned = await this.cleanupSession(lineId, { lockHandle: distributedHandle });
+      if (!cleaned) {
+        const path = require("path");
+        const fs = require("fs/promises");
+        const sessionDir = this.getSessionDir(lineId);
+        const lockFiles = ["SingletonLock", "SingletonSocket", "SingletonCookie", "lockfile"];
+        const lockLocations = [sessionDir, path.join(sessionDir, "Default")];
+        for (const location of lockLocations) {
+          for (const file of lockFiles) {
+            try {
+              await fs.rm(path.join(location, file), { force: true });
+            } catch {
+              // ignore
+            }
           }
         }
       }
+      await ownership.clearOwner(lineId);
+      return true;
+    } finally {
+      await releaseLineLock(distributedHandle);
     }
-    return true;
   }
 
   async refreshSettings(lineId) {
