@@ -1,4 +1,4 @@
-const { Queue, Worker, QueueScheduler } = require("bullmq");
+const { Queue, Worker } = require("bullmq");
 const redis = require("../config/redis");
 const env = require("../config/env");
 const logger = require("../config/logger");
@@ -22,11 +22,6 @@ const queue = new Queue(queueName, {
       delay: env.antiBanMinDelayMs
     }
   }
-});
-
-const scheduler = new QueueScheduler(queueName, { connection });
-scheduler.waitUntilReady().catch((error) => {
-  logger.error("Message queue scheduler failed", { error: error.message });
 });
 
 const worker = new Worker(
